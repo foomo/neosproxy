@@ -34,6 +34,7 @@ func (p *Proxy) invalidateCache(w http.ResponseWriter, r *http.Request) {
 	}(p)
 
 	w.WriteHeader(http.StatusOK)
+	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusOK, r.URL, "invalidate cache"))
 }
 
 func (p *Proxy) serveCachedNeosContentServerExport(w http.ResponseWriter, r *http.Request) {
@@ -69,6 +70,7 @@ func (p *Proxy) streamCachedNeosContentServerExport(w http.ResponseWriter, r *ht
 }
 
 func (p *Proxy) cacheNeosContentServerExport() (err error) {
+	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusProcessing, "/contentserverproxy/cache", "get new contentserver export from neos"))
 	cacheFile, err := os.Create(p.FilenameCachedContentServerExport + ".download")
 	if err != nil {
 		return
@@ -95,6 +97,7 @@ func (p *Proxy) cacheNeosContentServerExport() (err error) {
 		return
 	}
 
+	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusOK, "/contentserverproxy/cache", "got new contentserver export from neos"))
 	return nil
 }
 
