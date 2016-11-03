@@ -45,7 +45,7 @@ routes
 curl
 ----
 
-Some curl examples for locale development.
+Some curl examples for local development.
 
 start proxy
 

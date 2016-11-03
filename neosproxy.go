@@ -11,6 +11,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"time"
 )
 
 func (p *Proxy) error(w http.ResponseWriter, r *http.Request, code int, msg string) {
@@ -29,12 +30,14 @@ func (p *Proxy) invalidateCache(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go func(p *Proxy) {
-		p.cacheNeosContentServerExport()
-	}(p)
-
-	w.WriteHeader(http.StatusOK)
-	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusOK, r.URL, "invalidate cache"))
+	select {
+	case p.CacheInvalidationChannel <- time.Now():
+		w.WriteHeader(http.StatusOK)
+		log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusOK, r.URL, "added cache invalidation request to queue"))
+	default:
+		w.WriteHeader(http.StatusTooManyRequests)
+		log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusTooManyRequests, r.URL, "ignored cache invalidation request due to pending invalidation requests"))
+	}
 }
 
 func (p *Proxy) serveCachedNeosContentServerExport(w http.ResponseWriter, r *http.Request) {
@@ -106,9 +109,21 @@ type Proxy struct {
 	Address                           string
 	Endpoint                          *url.URL
 	FilenameCachedContentServerExport string
+	CacheInvalidationChannel          chan time.Time
 }
 
 func (p Proxy) run() {
+	go func(channel chan time.Time) {
+		for {
+			sleepTime := 5 * time.Second
+			time.Sleep(sleepTime)
+			requestTime := <-channel
+			p.cacheNeosContentServerExport()
+			duration := time.Since(requestTime.Add(sleepTime))
+			log.Println(fmt.Sprintf("%d\t%s\t%s %s %s %s", http.StatusCreated, "/contentserverproxy/cache", "processed cache invalidation request, which has been added at", requestTime.Format(time.RFC3339), "in", duration))
+		}
+	}(p.CacheInvalidationChannel)
+
 	proxyHandler := httputil.NewSingleHostReverseProxy(p.Endpoint)
 
 	mux := http.NewServeMux()
@@ -121,7 +136,6 @@ func (p Proxy) run() {
 }
 
 func main() {
-
 	apiKey := os.Getenv("API_KEY")
 	if apiKey == "" {
 		log.Fatal(fmt.Errorf("missing env variable API_KEY"))
@@ -138,9 +152,10 @@ func main() {
 	}
 
 	p := &Proxy{
-		APIKey:   apiKey,
-		Address:  *flagAddress,
-		Endpoint: neosURL,
+		APIKey:                            apiKey,
+		Address:                           *flagAddress,
+		Endpoint:                          neosURL,
+		CacheInvalidationChannel:          make(chan time.Time, 1),
 		FilenameCachedContentServerExport: os.TempDir() + "neos-contentserverexport.json",
 	}
 
