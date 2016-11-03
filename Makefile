@@ -16,7 +16,7 @@ build-docker: clean build-arch prepare-docker
 prepare-docker:
 	curl -o files/cacert.pem https://curl.haxx.se/ca/cacert.pem
 release: clean build-linux prepare-docker
-	git add -f docker/files/cacert.pem
+	git add -f files/cacert.pem
 	git add -f bin/neosproxy-linux-amd64
 	git commit -m 'build release candidate - new binary added for docker autobuild'
 	# please make sure that version number has been bumped, then tag and push the git repo
