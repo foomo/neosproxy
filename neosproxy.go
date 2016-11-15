@@ -65,8 +65,18 @@ func (p *Proxy) streamCachedNeosContentServerExport(w http.ResponseWriter, r *ht
 		return
 	}
 
+	fileInfo, err := os.Stat(p.FilenameCachedContentServerExport)
+	if err != nil {
+		p.error(w, r, http.StatusInternalServerError, "cached contentserver export: read file info failed")
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Last-Modified", fileInfo.ModTime().Format(http.TimeFormat))
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 	w.Write(bytes)
 	log.Println("cached contentserver export: stream file done")
 	return
