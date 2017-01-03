@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -11,6 +14,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -111,7 +115,39 @@ func (p *Proxy) cacheNeosContentServerExport() (err error) {
 	}
 
 	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusOK, "/contentserverproxy/cache", "got new contentserver export from neos"))
+
+	// Notify webhooks
+	if len(p.UpdatedHooks) > 0 {
+		p.notify("updated", p.UpdatedHooks)
+	}
+
 	return nil
+}
+
+func (p *Proxy) notify(event string, urls []string) {
+	log.Println(fmt.Sprintf("Notifying %d for '%s' event", len(urls), event))
+	for _, url := range p.UpdatedHooks {
+		data, _ := json.Marshal(map[string]string{
+			"type": event,
+		})
+		go func() {
+			var client *http.Client
+			if p.TLSHooks {
+				client = &http.Client{}
+			} else {
+				client = &http.Client{Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: p.TLSHooksSkipVerify},
+				},
+				}
+			}
+			resp, err := client.Post(url, "application/json", bytes.NewBuffer(data))
+			if err != nil {
+				log.Println(fmt.Sprintf("Failed to notify a webhook! Got error: %s", err.Error()))
+			} else {
+				log.Println(fmt.Sprintf("Notified webhook with response code: %d", resp.StatusCode))
+			}
+		}()
+	}
 }
 
 type Proxy struct {
@@ -120,6 +156,9 @@ type Proxy struct {
 	Endpoint                          *url.URL
 	FilenameCachedContentServerExport string
 	CacheInvalidationChannel          chan time.Time
+	UpdatedHooks                      []string
+	TLSHooks                          bool
+	TLSHooksSkipVerify                bool
 }
 
 func (p Proxy) run() {
@@ -154,6 +193,9 @@ func main() {
 
 	flagAddress := flag.String("address", "0.0.0.0:80", "address to listen to")
 	flagNeosHostname := flag.String("neos", "http://neos/", "neos cms hostname")
+	flagTLSHooks := flag.Bool("tls-hooks", false, "enable TLS on webhook notifications")
+	flagTLSHooksSkipVerify := flag.Bool("tls-hooks-skip-verify", false, "skip TLS verification on webhook notifications")
+	flagUpdatedHooks := flag.String("updated-hooks", "", "comma seperated list of urls to notify on update event")
 	flag.Parse()
 
 	neosURL, err := url.Parse(*flagNeosHostname)
@@ -167,6 +209,9 @@ func main() {
 		Endpoint:                          neosURL,
 		CacheInvalidationChannel:          make(chan time.Time, 1),
 		FilenameCachedContentServerExport: os.TempDir() + "neos-contentserverexport.json",
+		UpdatedHooks:                      strings.Split(*flagUpdatedHooks, ","),
+		TLSHooks:                          *flagTLSHooks,
+		TLSHooksSkipVerify:                *flagTLSHooksSkipVerify,
 	}
 
 	fmt.Println("start proxy on ", *flagAddress, "for neos", *flagNeosHostname, "with cache file in", p.FilenameCachedContentServerExport)
