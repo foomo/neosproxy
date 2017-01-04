@@ -117,8 +117,8 @@ func (p *Proxy) cacheNeosContentServerExport() (err error) {
 	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusOK, "/contentserverproxy/cache", "got new contentserver export from neos"))
 
 	// Notify webhooks
-	if len(p.UpdatedHooks) > 0 {
-		p.notify("updated", p.UpdatedHooks)
+	if len(p.CallbackUpdated) > 0 {
+		p.notify("updated", p.CallbackUpdated)
 	}
 
 	return nil
@@ -126,21 +126,34 @@ func (p *Proxy) cacheNeosContentServerExport() (err error) {
 
 func (p *Proxy) notify(event string, urls []string) {
 	log.Println(fmt.Sprintf("Notifying %d for '%s' event", len(urls), event))
-	for _, url := range p.UpdatedHooks {
+
+	for _, url := range urls {
 		data, _ := json.Marshal(map[string]string{
 			"type": event,
 		})
 		go func() {
 			var client *http.Client
-			if p.TLSHooks {
+			// Create client
+			if p.CallbackTLS {
 				client = &http.Client{}
 			} else {
-				client = &http.Client{Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{InsecureSkipVerify: p.TLSHooksSkipVerify},
-				},
+				client = &http.Client{
+					Transport: &http.Transport{
+						TLSClientConfig: &tls.Config{InsecureSkipVerify: !p.CallbackTLSVerify},
+					},
 				}
 			}
-			resp, err := client.Post(url, "application/json", bytes.NewBuffer(data))
+			// Create request
+			req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(data))
+			if err != nil {
+				log.Println(fmt.Sprintf("Failed to create callback request! Got error: %s", err.Error()))
+				return
+			}
+			// Add header
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Add("key", p.CallbackKey)
+			// Send request
+			resp, err := client.Do(req)
 			if err != nil {
 				log.Println(fmt.Sprintf("Failed to notify a webhook! Got error: %s", err.Error()))
 			} else {
@@ -156,12 +169,13 @@ type Proxy struct {
 	Endpoint                          *url.URL
 	FilenameCachedContentServerExport string
 	CacheInvalidationChannel          chan time.Time
-	UpdatedHooks                      []string
-	TLSHooks                          bool
-	TLSHooksSkipVerify                bool
+	CallbackUpdated                   []string
+	CallbackKey                       string
+	CallbackTLS                       bool
+	CallbackTLSVerify                 bool
 }
 
-func (p Proxy) run() {
+func (p Proxy) run() error {
 	go func(channel chan time.Time) {
 		for {
 			sleepTime := 5 * time.Second
@@ -181,21 +195,25 @@ func (p Proxy) run() {
 	mux.HandleFunc("/contentserver/export", p.serveCachedNeosContentServerExport)
 	mux.Handle("/", proxyHandler)
 
-	log.Fatal(http.ListenAndServe(p.Address, mux))
+	return http.ListenAndServe(p.Address, mux)
 }
 
 func main() {
 	apiKey := os.Getenv("API_KEY")
 	if apiKey == "" {
-		log.Fatal(fmt.Errorf("missing env variable API_KEY"))
+		log.Fatal("missing env variable API_KEY")
 		return
 	}
 
 	flagAddress := flag.String("address", "0.0.0.0:80", "address to listen to")
 	flagNeosHostname := flag.String("neos", "http://neos/", "neos cms hostname")
-	flagTLSHooks := flag.Bool("tls-hooks", false, "enable TLS on webhook notifications")
-	flagTLSHooksSkipVerify := flag.Bool("tls-hooks-skip-verify", false, "skip TLS verification on webhook notifications")
-	flagUpdatedHooks := flag.String("updated-hooks", "", "comma seperated list of urls to notify on update event")
+
+	// Callback flags
+	flagCallbackKey := flag.String("callback-key", "", "optinonal header key to send with each web callback")
+	flagCallbackTLS := flag.Bool("callback-tls", false, "enable TLS on web callbacks")
+	flagCallbackTLSVerify := flag.Bool("callback-tls-verify", true, "skip TLS verification on web callbacks")
+	flagCallbackUpdated := flag.String("callback-updated", "", "comma seperated list of urls to notify on update event")
+
 	flag.Parse()
 
 	neosURL, err := url.Parse(*flagNeosHostname)
@@ -209,11 +227,14 @@ func main() {
 		Endpoint:                          neosURL,
 		CacheInvalidationChannel:          make(chan time.Time, 1),
 		FilenameCachedContentServerExport: os.TempDir() + "neos-contentserverexport.json",
-		UpdatedHooks:                      strings.Split(*flagUpdatedHooks, ","),
-		TLSHooks:                          *flagTLSHooks,
-		TLSHooksSkipVerify:                *flagTLSHooksSkipVerify,
+		CallbackKey:                       *flagCallbackKey,
+		CallbackTLS:                       *flagCallbackTLS,
+		CallbackTLSVerify:                 *flagCallbackTLSVerify,
+		CallbackUpdated:                   strings.Split(*flagCallbackUpdated, ","),
 	}
 
 	fmt.Println("start proxy on ", *flagAddress, "for neos", *flagNeosHostname, "with cache file in", p.FilenameCachedContentServerExport)
-	p.run()
+	if err := p.run(); err != nil {
+		log.Fatal(err)
+	}
 }

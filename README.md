@@ -17,6 +17,27 @@ The NEOS endpoint must be configured by setting the "neos" parameter as well.
 neosproxy --address=":80" --neos="https://www.myneosendpoint.com"
 ```
 
+web hooks
+----
+
+Neosproxy can call given comma seperated urls to notify you on events:
+
+
+* `--callback-updated`: called after update
+
+If you require https you can pass the following options:
+
+* `--callback-tls`: enable tls on all callbacks
+* `--callback-tls-verify`: set `false` to skip tls verification
+
+You can optionally add a `--callback-key` to be sent as header with each call.  
+
+Example:
+
+```
+neosproxy --address=":80" --neos="https://www.myneosendpoint.com" --callback-tls --callback-tls-verify="false" --callback-updated="https://foo.com,https://bar.com" --callback-key="secret"
+```
+
 docker
 ----
 
