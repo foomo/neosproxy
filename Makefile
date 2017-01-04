@@ -19,8 +19,8 @@ release: clean build-linux prepare-docker
 	git add -f files/cacert.pem
 	git add -f bin/neosproxy-linux-amd64
 	git commit -m 'build release candidate - new binary added for docker autobuild'
-	echo "-------------------------"
-	echo "please make sure that version number has been bumped, then tag and push the git repo"
-	echo "-------------------------"
+	@echo "-------------------------"
+	@echo "please make sure that version number has been bumped, then tag and push the git repo"
+	@echo "-------------------------"
 test:
 	go test ./...
