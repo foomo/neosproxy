@@ -18,11 +18,13 @@ import (
 	"time"
 )
 
+// error ...
 func (p *Proxy) error(w http.ResponseWriter, r *http.Request, code int, msg string) {
 	log.Println(fmt.Sprintf("%d\t%s\t%s", code, r.URL, msg))
 	w.WriteHeader(code)
 }
 
+// invalidateCache ...
 func (p *Proxy) invalidateCache(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "DELETE" {
 		p.error(w, r, http.StatusMethodNotAllowed, "cached contentserver export: invalidate cache failed - method not allowed")
@@ -44,6 +46,7 @@ func (p *Proxy) invalidateCache(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// serveCachedNeosContentServerExport ...
 func (p *Proxy) serveCachedNeosContentServerExport(w http.ResponseWriter, r *http.Request) {
 	if _, err := os.Stat(p.FilenameCachedContentServerExport); os.IsNotExist(err) {
 		log.Println("cached contentserver export: not yet cached")
@@ -56,6 +59,7 @@ func (p *Proxy) serveCachedNeosContentServerExport(w http.ResponseWriter, r *htt
 	p.streamCachedNeosContentServerExport(w, r)
 }
 
+// streamCachedNeosContentServerExport ...
 func (p *Proxy) streamCachedNeosContentServerExport(w http.ResponseWriter, r *http.Request) {
 	log.Println("cached contentserver export: stream file start")
 	if _, err := os.Stat(p.FilenameCachedContentServerExport); os.IsNotExist(err) {
@@ -86,6 +90,7 @@ func (p *Proxy) streamCachedNeosContentServerExport(w http.ResponseWriter, r *ht
 	return
 }
 
+// cacheNeosContentServerExport ...
 func (p *Proxy) cacheNeosContentServerExport() (err error) {
 	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusProcessing, "/contentserverproxy/cache", "get new contentserver export from neos"))
 	cacheFile, err := os.Create(p.FilenameCachedContentServerExport + ".download")
@@ -124,27 +129,24 @@ func (p *Proxy) cacheNeosContentServerExport() (err error) {
 	return nil
 }
 
+// notify notifies callbacks for the given event
 func (p *Proxy) notify(event string, urls []string) {
 	log.Println(fmt.Sprintf("Notifying %d for '%s' event", len(urls), event))
+	data, _ := json.Marshal(map[string]string{
+		"type": event,
+	})
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: !p.CallbackTLSVerify,
+			},
+		},
+	}
 
-	for _, url := range urls {
-		data, _ := json.Marshal(map[string]string{
-			"type": event,
-		})
+	for _, value := range urls {
 		go func() {
-			var client *http.Client
-			// Create client
-			if p.CallbackTLS {
-				client = &http.Client{}
-			} else {
-				client = &http.Client{
-					Transport: &http.Transport{
-						TLSClientConfig: &tls.Config{InsecureSkipVerify: !p.CallbackTLSVerify},
-					},
-				}
-			}
 			// Create request
-			req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(data))
+			req, err := http.NewRequest(http.MethodPost, value, bytes.NewBuffer(data))
 			if err != nil {
 				log.Println(fmt.Sprintf("Failed to create callback request! Got error: %s", err.Error()))
 				return
@@ -153,7 +155,7 @@ func (p *Proxy) notify(event string, urls []string) {
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Add("key", p.CallbackKey)
 			// Send request
-			resp, err := client.Do(req)
+			resp, err := httpClient.Do(req)
 			if err != nil {
 				log.Println(fmt.Sprintf("Failed to notify a webhook! Got error: %s", err.Error()))
 			} else {
@@ -171,7 +173,6 @@ type Proxy struct {
 	CacheInvalidationChannel          chan time.Time
 	CallbackUpdated                   []string
 	CallbackKey                       string
-	CallbackTLS                       bool
 	CallbackTLSVerify                 bool
 }
 
@@ -210,7 +211,6 @@ func main() {
 
 	// Callback flags
 	flagCallbackKey := flag.String("callback-key", "", "optinonal header key to send with each web callback")
-	flagCallbackTLS := flag.Bool("callback-tls", false, "enable TLS on web callbacks")
 	flagCallbackTLSVerify := flag.Bool("callback-tls-verify", true, "skip TLS verification on web callbacks")
 	flagCallbackUpdated := flag.String("callback-updated", "", "comma seperated list of urls to notify on update event")
 
@@ -228,7 +228,6 @@ func main() {
 		CacheInvalidationChannel:          make(chan time.Time, 1),
 		FilenameCachedContentServerExport: os.TempDir() + "neos-contentserverexport.json",
 		CallbackKey:                       *flagCallbackKey,
-		CallbackTLS:                       *flagCallbackTLS,
 		CallbackTLSVerify:                 *flagCallbackTLSVerify,
 		CallbackUpdated:                   strings.Split(*flagCallbackUpdated, ","),
 	}

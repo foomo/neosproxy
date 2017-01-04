@@ -25,17 +25,16 @@ Neosproxy can call given comma seperated urls to notify you on events:
 
 * `--callback-updated`: called after update
 
-If you require https you can pass the following options:
+If you want to skip tls verification you can pass the following option:
 
-* `--callback-tls`: enable tls on all callbacks
-* `--callback-tls-verify`: set `false` to skip tls verification
+* `--callback-tls-verify=false`: skip tls verification
 
 You can optionally add a `--callback-key` to be sent as header with each call.  
 
 Example:
 
 ```
-neosproxy --address=":80" --neos="https://www.myneosendpoint.com" --callback-tls --callback-tls-verify="false" --callback-updated="https://foo.com,https://bar.com" --callback-key="secret"
+neosproxy --address=":80" --neos="https://www.myneosendpoint.com" --callback-tls-verify="false" --callback-updated="http://foo.com,https://bar.com" --callback-key="secret"
 ```
 
 docker
