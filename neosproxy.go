@@ -203,7 +203,6 @@ func main() {
 	apiKey := os.Getenv("API_KEY")
 	if apiKey == "" {
 		log.Fatal("missing env variable API_KEY")
-		return
 	}
 
 	flagAddress := flag.String("address", "0.0.0.0:80", "address to listen to")
@@ -213,6 +212,9 @@ func main() {
 	flagCallbackKey := flag.String("callback-key", "", "optinonal header key to send with each web callback")
 	flagCallbackTLSVerify := flag.Bool("callback-tls-verify", true, "skip TLS verification on web callbacks")
 	flagCallbackUpdated := flag.String("callback-updated", "", "comma seperated list of urls to notify on update event")
+
+	// Update flags
+	flagAutoUpdate := flag.String("auto-update", "", "duration value on which to automatically update the proxy")
 
 	flag.Parse()
 
@@ -230,6 +232,25 @@ func main() {
 		CallbackKey:                       *flagCallbackKey,
 		CallbackTLSVerify:                 *flagCallbackTLSVerify,
 		CallbackUpdated:                   strings.Split(*flagCallbackUpdated, ","),
+	}
+
+	if *flagAutoUpdate != "" {
+		autoUpdate, err := time.ParseDuration(*flagAutoUpdate)
+		if err != nil {
+			log.Fatal("invalid auto-update duration value: " + err.Error())
+		}
+		go func() {
+			log.Println("starting with auto update every " + *flagAutoUpdate)
+			for {
+				time.Sleep(autoUpdate)
+				select {
+				case p.CacheInvalidationChannel <- time.Now():
+					log.Println("auto update: added cache invalidation request to queue")
+				default:
+					log.Println("auto update: ignored cache invalidation request due to pending invalidation requests")
+				}
+			}
+		}()
 	}
 
 	fmt.Println("start proxy on ", *flagAddress, "for neos", *flagNeosHostname, "with cache file in", p.FilenameCachedContentServerExport)

@@ -14,7 +14,7 @@ Furthermore you need to define on which address the proxy should listen.
 The NEOS endpoint must be configured by setting the "neos" parameter as well.
 
 ```
-neosproxy --address=":80" --neos="https://www.myneosendpoint.com"
+neosproxy --address=":80" --neos="https://www.myneosendpoint.com" --auto-update="1h"
 ```
 
 web hooks
