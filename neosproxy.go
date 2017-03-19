@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"hash"
 	"io"
 	"io/ioutil"
 	"log"
@@ -124,13 +125,14 @@ func (p *Proxy) cacheNeosContentServerExport() (err error) {
 
 	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusOK, "/contentserverproxy/cache", "got new contentserver export from neos"))
 
-	hash := md5.New()
-	if _, err = io.Copy(hash, response.Body); err != nil {
+	return
+
+	hasher := md5.New()
+	if _, err = io.Copy(hasher, response.Body); err != nil {
 		return
 	}
-	hashInBytes := hash.Sum(nil)[:16]
-	newMD5Sum := hex.EncodeToString(hashInBytes)
-	log.Println("new contentserver export md5 sum: " + md5Sum)
+	newMD5Sum := hex.EncodeToString(hasher.Sum(nil))
+	log.Println("md5 new: " + newMD5Sum + ", md5 old: " + md5Sum)
 
 	// Notify webhooks
 	if len(p.CallbackUpdated) > 0 && md5Sum != newMD5Sum {
