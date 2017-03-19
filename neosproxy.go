@@ -113,7 +113,12 @@ func (p *Proxy) cacheNeosContentServerExport() (err error) {
 	}
 	defer response.Body.Close()
 
-	if _, err = io.Copy(cacheFile, response.Body); err != nil {
+	bodyBytes, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return
+	}
+
+	if _, err = cacheFile.Write(bodyBytes); err != nil {
 		return
 	}
 
@@ -123,7 +128,7 @@ func (p *Proxy) cacheNeosContentServerExport() (err error) {
 	}
 
 	hasher := md5.New()
-	if _, err = io.Copy(hasher, response.Body); err != nil {
+	if _, err = hasher.Write(bodyBytes); err != nil {
 		return
 	}
 	newMD5Sum := hex.EncodeToString(hasher.Sum(nil))
