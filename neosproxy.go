@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/md5"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -17,6 +19,8 @@ import (
 	"strings"
 	"time"
 )
+
+var md5Sum string
 
 // error ...
 func (p *Proxy) error(w http.ResponseWriter, r *http.Request, code int, msg string) {
@@ -109,8 +113,7 @@ func (p *Proxy) cacheNeosContentServerExport() (err error) {
 	}
 	defer response.Body.Close()
 
-	_, err = io.Copy(cacheFile, response.Body)
-	if err != nil {
+	if _, err = io.Copy(cacheFile, response.Body); err != nil {
 		return
 	}
 
@@ -121,9 +124,20 @@ func (p *Proxy) cacheNeosContentServerExport() (err error) {
 
 	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusOK, "/contentserverproxy/cache", "got new contentserver export from neos"))
 
+	hash := md5.New()
+	if _, err = io.Copy(hash, response.Body); err != nil {
+		return
+	}
+	hashInBytes := hash.Sum(nil)[:16]
+	newMD5Sum := hex.EncodeToString(hashInBytes)
+	log.Println("new contentserver export md5 sum: " + md5Sum)
+
 	// Notify webhooks
-	if len(p.CallbackUpdated) > 0 {
+	if len(p.CallbackUpdated) > 0 && md5Sum != newMD5Sum {
 		p.notify("updated", p.CallbackUpdated)
+		md5Sum = newMD5Sum
+	} else {
+		log.Println("skipping 'updated' notifications since nothing changed")
 	}
 
 	return nil
