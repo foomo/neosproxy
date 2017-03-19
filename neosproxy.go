@@ -96,7 +96,7 @@ func (p *Proxy) streamCachedNeosContentServerExport(w http.ResponseWriter, r *ht
 
 // cacheNeosContentServerExport ...
 func (p *Proxy) cacheNeosContentServerExport() (err error) {
-	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusProcessing, "/contentserverproxy/cache", "get new contentserver export from neos"))
+	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusProcessing, "/contentserverproxy/cache", "getting new contentserver export from neos"))
 	cacheFile, err := os.Create(p.FilenameCachedContentServerExport + ".download")
 	if err != nil {
 		return
@@ -122,10 +122,6 @@ func (p *Proxy) cacheNeosContentServerExport() (err error) {
 		return
 	}
 
-	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusOK, "/contentserverproxy/cache", "got new contentserver export from neos"))
-
-	return
-
 	hasher := md5.New()
 	if _, err = io.Copy(hasher, response.Body); err != nil {
 		return
@@ -140,6 +136,8 @@ func (p *Proxy) cacheNeosContentServerExport() (err error) {
 	} else {
 		log.Println("skipping 'updated' notifications since nothing changed")
 	}
+
+	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusOK, "/contentserverproxy/cache", "got new contentserver export from neos"))
 
 	return nil
 }
