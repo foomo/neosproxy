@@ -9,7 +9,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"hash"
 	"io"
 	"io/ioutil"
 	"log"
