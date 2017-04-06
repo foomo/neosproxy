@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -19,7 +20,7 @@ import (
 	"time"
 )
 
-var md5Sum string
+const DefaultWorkspace = "live"
 
 // error ...
 func (p *Proxy) error(w http.ResponseWriter, r *http.Request, code int, msg string) {
@@ -39,22 +40,32 @@ func (p *Proxy) invalidateCache(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println(fmt.Sprintf("%s\t%s", r.URL, "cache invalidation request"))
+
+	workspace := p.getRequestedWorkspace(r.URL)
+	channel := p.addInvalidationChannel(workspace)
+
 	select {
-	case p.CacheInvalidationChannel <- time.Now():
+	case channel <- time.Now():
 		w.WriteHeader(http.StatusOK)
-		log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusOK, r.URL, "added cache invalidation request to queue"))
+		log.Println(fmt.Sprintf("added cache invalidation request to queue for workspace %s", workspace))
 	default:
 		w.WriteHeader(http.StatusTooManyRequests)
-		log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusTooManyRequests, r.URL, "ignored cache invalidation request due to pending invalidation requests"))
+		log.Println(fmt.Sprintf("ignored cache invalidation request due to pending invalidation requests for workspace %s", workspace))
 	}
 }
 
 // serveCachedNeosContentServerExport ...
 func (p *Proxy) serveCachedNeosContentServerExport(w http.ResponseWriter, r *http.Request) {
-	if _, err := os.Stat(p.FilenameCachedContentServerExport); os.IsNotExist(err) {
-		log.Println("cached contentserver export: not yet cached")
-		err = p.cacheNeosContentServerExport()
-		if err != nil {
+	workspace := p.getRequestedWorkspace(r.URL)
+	cacheFilename := p.getCacheFilename(workspace)
+
+	log.Println(fmt.Sprintf("%s\t%s", r.URL, "serve cached neos content server export request"))
+
+	if _, err := os.Stat(cacheFilename); os.IsNotExist(err) {
+		log.Println(fmt.Sprintf("cached contentserver export: not yet cached for workspace %s", workspace))
+		if err = p.cacheNeosContentServerExport(workspace); err != nil {
+			log.Println(err.Error())
 			p.error(w, r, http.StatusInternalServerError, "cached contentserver export: unable to load export from neos")
 			return
 		}
@@ -62,23 +73,41 @@ func (p *Proxy) serveCachedNeosContentServerExport(w http.ResponseWriter, r *htt
 	p.streamCachedNeosContentServerExport(w, r)
 }
 
+// getRequestedWorkspace returns the requested workspace or default
+func (p *Proxy) getRequestedWorkspace(url *url.URL) string {
+	workspace := url.Query().Get("workspace")
+	if workspace == "" {
+		workspace = DefaultWorkspace
+	}
+	return workspace
+}
+
+// getCacheFilename returns the cache filename for the given workspace
+func (p *Proxy) getCacheFilename(workspace string) string {
+	return fmt.Sprintf("%s/contentserver-export-%s.json", p.CacheDir, workspace)
+}
+
 // streamCachedNeosContentServerExport ...
 func (p *Proxy) streamCachedNeosContentServerExport(w http.ResponseWriter, r *http.Request) {
 	log.Println("cached contentserver export: stream file start")
-	if _, err := os.Stat(p.FilenameCachedContentServerExport); os.IsNotExist(err) {
+
+	workspace := p.getRequestedWorkspace(r.URL)
+	cacheFilename := p.getCacheFilename(workspace)
+
+	if _, err := os.Stat(cacheFilename); os.IsNotExist(err) {
 		p.error(w, r, http.StatusNotFound, "cached contentserver export: file not found")
 		return
 	}
 
-	bytes, err := ioutil.ReadFile(p.FilenameCachedContentServerExport)
+	fileInfo, err := os.Stat(cacheFilename)
 	if err != nil {
-		p.error(w, r, http.StatusInternalServerError, "cached contentserver export: read file failed")
+		p.error(w, r, http.StatusInternalServerError, "cached contentserver export: read file info failed")
 		return
 	}
 
-	fileInfo, err := os.Stat(p.FilenameCachedContentServerExport)
+	bytes, err := ioutil.ReadFile(cacheFilename)
 	if err != nil {
-		p.error(w, r, http.StatusInternalServerError, "cached contentserver export: read file info failed")
+		p.error(w, r, http.StatusInternalServerError, "cached contentserver export: read file failed")
 		return
 	}
 
@@ -94,63 +123,96 @@ func (p *Proxy) streamCachedNeosContentServerExport(w http.ResponseWriter, r *ht
 }
 
 // cacheNeosContentServerExport ...
-func (p *Proxy) cacheNeosContentServerExport() (err error) {
-	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusProcessing, "/contentserverproxy/cache", "getting new contentserver export from neos"))
-	cacheFile, err := os.Create(p.FilenameCachedContentServerExport + ".download")
-	if err != nil {
-		return
-	}
-	defer cacheFile.Close()
+func (p *Proxy) cacheNeosContentServerExport(workspace string) error {
+	log.Println(fmt.Sprintf("caching new neos contentserver export for workspace %s", workspace))
 
-	response, err := http.Get(p.Endpoint.String() + "/contentserver/export")
+	cacheFilename := p.getCacheFilename(workspace)
+	downloadFilename := cacheFilename + ".download"
+
+	if err := p.downloadNeosContentServerExport(downloadFilename, workspace); err != nil {
+		return err
+	}
+
+	cacheFileHash, err := p.getM5Hash(cacheFilename)
+	if err != nil {
+		return err
+	}
+
+	downloadFileHash, err := p.getM5Hash(downloadFilename)
+	if err != nil {
+		return err
+	}
+
+	log.Println("md5 new: '" + downloadFileHash + "', md5 old: '" + cacheFileHash + "'")
+
+	if err := os.Rename(downloadFilename, cacheFilename); err != nil {
+		return err
+	}
+
+	// Notify webhooks
+	if len(p.CallbackUpdated) > 0 && cacheFileHash != downloadFileHash {
+		p.notify("updated", p.CallbackUpdated, workspace)
+	} else {
+		log.Println("skipping 'updated' notifications since nothing changed")
+	}
+
+	log.Println(fmt.Sprintf("cached new contentserver export from neos for workspace %s", workspace))
+
+	return nil
+}
+
+// downloadNeosContentServerExport ...
+func (p *Proxy) downloadNeosContentServerExport(filename string, workspace string) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	response, err := http.Get(p.Endpoint.String() + "/contentserver/export?workspace=" + workspace)
 	if err != nil {
 		return err
 	}
 	if response.StatusCode != http.StatusOK {
-		err = errors.New(fmt.Sprintln("unexpected status code from site contentserver export", response.StatusCode, response.Status))
-		return
+		return errors.New(fmt.Sprintln("unexpected status code from site contentserver export", response.StatusCode, response.Status))
 	}
 	defer response.Body.Close()
 
 	bodyBytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return
+		return err
 	}
 
-	if _, err = cacheFile.Write(bodyBytes); err != nil {
-		return
+	if _, err = file.Write(bodyBytes); err != nil {
+		return err
 	}
-
-	err = os.Rename(cacheFile.Name(), p.FilenameCachedContentServerExport)
-	if err != nil {
-		return
-	}
-
-	hasher := md5.New()
-	if _, err = hasher.Write(bodyBytes); err != nil {
-		return
-	}
-	newMD5Sum := hex.EncodeToString(hasher.Sum(nil))
-	log.Println("md5 new: " + newMD5Sum + ", md5 old: " + md5Sum)
-
-	// Notify webhooks
-	if len(p.CallbackUpdated) > 0 && md5Sum != newMD5Sum {
-		p.notify("updated", p.CallbackUpdated)
-		md5Sum = newMD5Sum
-	} else {
-		log.Println("skipping 'updated' notifications since nothing changed")
-	}
-
-	log.Println(fmt.Sprintf("%d\t%s\t%s", http.StatusOK, "/contentserverproxy/cache", "got new contentserver export from neos"))
 
 	return nil
 }
 
+// getM5Hash returns a file's md5 hash
+func (p *Proxy) getM5Hash(filename string) (hash string, err error) {
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return "", nil
+	}
+	file, err := os.Open(filename)
+	if err != nil {
+		return hash, err
+	}
+	defer file.Close()
+	hasher := md5.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return hash, err
+	}
+	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
 // notify notifies callbacks for the given event
-func (p *Proxy) notify(event string, urls []string) {
-	log.Println(fmt.Sprintf("Notifying %d for '%s' event", len(urls), event))
+func (p *Proxy) notify(event string, urls []string, workspace string) {
+	log.Println(fmt.Sprintf("Notifying %d for '%s' event on workspace %s", len(urls), event, workspace))
 	data, _ := json.Marshal(map[string]string{
-		"type": event,
+		"type":      event,
+		"workspace": workspace,
 	})
 	httpClient := &http.Client{
 		Transport: &http.Transport{
@@ -183,30 +245,19 @@ func (p *Proxy) notify(event string, urls []string) {
 }
 
 type Proxy struct {
-	APIKey                            string
-	Address                           string
-	Endpoint                          *url.URL
-	FilenameCachedContentServerExport string
-	CacheInvalidationChannel          chan time.Time
-	CallbackUpdated                   []string
-	CallbackKey                       string
-	CallbackTLSVerify                 bool
+	APIKey                    string
+	Address                   string
+	Endpoint                  *url.URL
+	CacheDir                  string
+	CacheInvalidationChannels map[string](chan time.Time)
+	CallbackUpdated           []string
+	CallbackKey               string
+	CallbackTLSVerify         bool
 }
 
-func (p Proxy) run() error {
-	go func(channel chan time.Time) {
-		for {
-			sleepTime := 5 * time.Second
-			time.Sleep(sleepTime)
-			requestTime := <-channel
-			p.cacheNeosContentServerExport()
-			duration := time.Since(requestTime.Add(sleepTime))
-			log.Println(fmt.Sprintf("%d\t%s\t%s %s %s %s", http.StatusCreated, "/contentserverproxy/cache", "processed cache invalidation request, which has been added at", requestTime.Format(time.RFC3339), "in", duration))
-		}
-	}(p.CacheInvalidationChannel)
-
+func (p *Proxy) run() error {
+	p.addInvalidationChannel(DefaultWorkspace)
 	proxyHandler := httputil.NewSingleHostReverseProxy(p.Endpoint)
-
 	mux := http.NewServeMux()
 	mux.Handle("/contentserver/export/", proxyHandler)
 	mux.HandleFunc("/contentserverproxy/cache", p.invalidateCache)
@@ -214,6 +265,32 @@ func (p Proxy) run() error {
 	mux.Handle("/", proxyHandler)
 
 	return http.ListenAndServe(p.Address, mux)
+}
+
+// addInvalidationChannel adds a new invalidation channel
+func (p *Proxy) addInvalidationChannel(workspace string) chan time.Time {
+	if _, ok := p.CacheInvalidationChannels[workspace]; !ok {
+		channel := make(chan time.Time, 1)
+		p.CacheInvalidationChannels[workspace] = channel
+		go func(workspace string, channel chan time.Time) {
+			for {
+				sleepTime := 5 * time.Second
+				time.Sleep(sleepTime)
+				requestTime := <-channel
+				if err := p.cacheNeosContentServerExport(workspace); err != nil {
+					log.Println(err.Error())
+				} else {
+					log.Println(fmt.Sprintf(
+						"processed cache invalidation request, which has been added at %s in %.2fs for workspace %s",
+						requestTime.Format(time.RFC3339),
+						time.Since(requestTime.Add(sleepTime)).Seconds(),
+						workspace,
+					))
+				}
+			}
+		}(workspace, channel)
+	}
+	return p.CacheInvalidationChannels[workspace]
 }
 
 func main() {
@@ -241,14 +318,15 @@ func main() {
 	}
 
 	p := &Proxy{
-		APIKey:                            apiKey,
-		Address:                           *flagAddress,
-		Endpoint:                          neosURL,
-		CacheInvalidationChannel:          make(chan time.Time, 1),
-		FilenameCachedContentServerExport: os.TempDir() + "neos-contentserverexport.json",
-		CallbackKey:                       *flagCallbackKey,
-		CallbackTLSVerify:                 *flagCallbackTLSVerify,
-		CallbackUpdated:                   strings.Split(*flagCallbackUpdated, ","),
+		APIKey:                    apiKey,
+		Address:                   *flagAddress,
+		Endpoint:                  neosURL,
+		CacheDir:                  os.TempDir(),
+		CacheInvalidationChannels: make(map[string](chan time.Time)),
+
+		CallbackKey:       *flagCallbackKey,
+		CallbackTLSVerify: *flagCallbackTLSVerify,
+		CallbackUpdated:   strings.Split(*flagCallbackUpdated, ","),
 	}
 
 	if *flagAutoUpdate != "" {
@@ -260,17 +338,20 @@ func main() {
 			log.Println("starting with auto update every " + *flagAutoUpdate)
 			for {
 				time.Sleep(autoUpdate)
-				select {
-				case p.CacheInvalidationChannel <- time.Now():
-					log.Println("auto update: added cache invalidation request to queue")
-				default:
-					log.Println("auto update: ignored cache invalidation request due to pending invalidation requests")
+				log.Println(fmt.Sprintf("auto update: updating %d cache", len(p.CacheInvalidationChannels)))
+				for workspace, channel := range p.CacheInvalidationChannels {
+					select {
+					case channel <- time.Now():
+						log.Println(fmt.Sprintf("auto update: added cache invalidation request to queue for '%s' workspace", workspace))
+					default:
+						log.Println(fmt.Sprintf("auto update: ignored cache invalidation request due to pending invalidation requests for '%s' workspace", workspace))
+					}
 				}
 			}
 		}()
 	}
 
-	fmt.Println("start proxy on ", *flagAddress, "for neos", *flagNeosHostname, "with cache file in", p.FilenameCachedContentServerExport)
+	fmt.Println("start proxy on ", *flagAddress, "for neos", *flagNeosHostname, "with cache dir in", p.CacheDir)
 	if err := p.run(); err != nil {
 		log.Fatal(err)
 	}

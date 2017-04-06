@@ -10,6 +10,8 @@ COPY bin/neosproxy-linux-amd64 /usr/sbin/neosproxy
 #ADD https://curl.haxx.se/ca/cacert.pem /etc/ssl/certs/ca-certificates.crt
 COPY files/cacert.pem /etc/ssl/certs/ca-certificates.crt
 
+COPY files/tmp /tmp
+
 EXPOSE 80
 
 ENTRYPOINT ["/usr/sbin/neosproxy"]
