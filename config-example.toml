@@ -1,0 +1,25 @@
+[proxy]
+  address = "1.2.3.4:80"
+
+[neos]
+  host = "http://cms-example-hostname/"
+
+[cache]
+  # duration value on which to automatically update the proxy
+  autoUpdateDuration = "15m"
+  # cache directory
+  directory = "/var/cache"
+
+[callbacks]
+
+  [[callbacks.notifyOnUpdate]]
+    workspace = "stage"
+    url = "https://host.example.com/whatever/to-call"
+    verify-tls = true
+    key = "1234"
+
+  [[callbacks.notifyOnUpdate]]
+    workspace = "live"
+    url = "https://host.example.com/whatever/to-call"
+    verify-tls = false
+    key = "765432"

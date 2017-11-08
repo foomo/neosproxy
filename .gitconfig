@@ -1,0 +1,1 @@
+release-notes = "!sh -c 'git log $(git rev-parse --abbrev-ref HEAD) --no-merges --not master | format_release_notes.rb' -"
