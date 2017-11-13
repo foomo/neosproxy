@@ -31,7 +31,8 @@ func (p *Proxy) invalidateCache(w http.ResponseWriter, r *http.Request) {
 	log.Println(fmt.Sprintf("%s\t%s", r.URL, "cache invalidation request"))
 
 	workspace := p.getRequestedWorkspace(r.URL)
-	channel := p.addInvalidationChannel(workspace)
+	user := r.Header.Get("X-User")
+	channel := p.addInvalidationChannel(workspace, user)
 
 	select {
 	case channel <- time.Now():
@@ -51,8 +52,9 @@ func (p *Proxy) serveCachedNeosContentServerExport(w http.ResponseWriter, r *htt
 	log.Println(fmt.Sprintf("%s\t%s", r.URL, "serve cached neos content server export request"))
 
 	if _, err := os.Stat(cacheFilename); os.IsNotExist(err) {
+		user := r.Header.Get("X-User")
 		log.Println(fmt.Sprintf("cached contentserver export: not yet cached for workspace %s", workspace))
-		if err = p.cacheNeosContentServerExport(workspace); err != nil {
+		if err = p.cacheNeosContentServerExport(workspace, user); err != nil {
 			log.Println(err.Error())
 			p.error(w, r, http.StatusInternalServerError, "cached contentserver export: unable to load export from neos")
 			return
@@ -111,7 +113,7 @@ func (p *Proxy) streamCachedNeosContentServerExport(w http.ResponseWriter, r *ht
 }
 
 // cacheNeosContentServerExport ...
-func (p *Proxy) cacheNeosContentServerExport(workspace string) error {
+func (p *Proxy) cacheNeosContentServerExport(workspace string, user string) error {
 	log.Println(fmt.Sprintf("caching new neos contentserver export for workspace %s", workspace))
 
 	cacheFilename := p.getCacheFilename(workspace)
@@ -139,7 +141,7 @@ func (p *Proxy) cacheNeosContentServerExport(workspace string) error {
 
 	// notify webhooks
 	if cacheFileHash != downloadFileHash {
-		p.NotifyOnUpdate(workspace)
+		p.NotifyOnUpdate(workspace, user)
 	} else {
 		log.Println("skipping 'updated' notifications since nothing changed")
 	}

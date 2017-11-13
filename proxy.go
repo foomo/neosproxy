@@ -15,7 +15,7 @@ type Proxy struct {
 }
 
 func (p *Proxy) Run() error {
-	p.addInvalidationChannel(DefaultWorkspace)
+	p.addInvalidationChannel(DefaultWorkspace, "")
 	proxyHandler := httputil.NewSingleHostReverseProxy(p.Config.Neos.URL)
 	mux := http.NewServeMux()
 	mux.Handle("/contentserver/export/", proxyHandler)
@@ -33,7 +33,7 @@ func (p *Proxy) error(w http.ResponseWriter, r *http.Request, code int, msg stri
 }
 
 // addInvalidationChannel adds a new invalidation channel
-func (p *Proxy) addInvalidationChannel(workspace string) chan time.Time {
+func (p *Proxy) addInvalidationChannel(workspace string, user string) chan time.Time {
 	if _, ok := p.CacheInvalidationChannels[workspace]; !ok {
 		channel := make(chan time.Time, 1)
 		p.CacheInvalidationChannels[workspace] = channel
@@ -42,7 +42,7 @@ func (p *Proxy) addInvalidationChannel(workspace string) chan time.Time {
 				sleepTime := 5 * time.Second
 				time.Sleep(sleepTime)
 				requestTime := <-channel
-				if err := p.cacheNeosContentServerExport(workspace); err != nil {
+				if err := p.cacheNeosContentServerExport(workspace, user); err != nil {
 					log.Println(err.Error())
 				} else {
 					log.Println(fmt.Sprintf(

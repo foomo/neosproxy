@@ -10,16 +10,38 @@
   # cache directory
   directory = "/var/cache"
 
-[callbacks]
-
-  [[callbacks.notifyOnUpdate]]
-    workspace = "stage"
+[channels]
+  [[channels.foomo-stage]]
+    type = "foomo"
     url = "https://host.example.com/whatever/to-call"
     verify-tls = true
     key = "1234"
+  [[channels.foomo-prod]]
+    type = "foomo"
+    url = "https://host.example.com/whatever/to-call"
+    verify-tls = true
+    key = "1234"
+  [[channels.slack]]
+    type = "slack"
+    url = "https://hooks.slack.com/services/foo/bar"
+    channel = "#dev-ops-test"
+  [[channels.bla]]
+    type = "default"
+    url = "https://host.example.com/whatever/to-call"
+    verify-tls = true
+    key = "1234"
+    method = "post"
 
+[callbacks]
+  [[callbacks.notifyOnUpdate]]
+    workspace = "stage"
+    channel = "foomo-stage"
   [[callbacks.notifyOnUpdate]]
     workspace = "live"
-    url = "https://host.example.com/whatever/to-call"
-    verify-tls = false
-    key = "765432"
+    channel = "foomo-prod"
+  [[callbacks.notifyOnUpdate]]
+    workspace = "live"
+    channel = "foomo-stage"
+  [[callbacks.notifyOnUpdate]]
+    workspace = "live"
+    channel = "slack"

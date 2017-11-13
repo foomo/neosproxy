@@ -7,7 +7,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func loadConfig(t *testing.T) *Config {
+	ConfigSetDefaults()
+	viper.SetConfigName("config-example")
+	conf, err := GetConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return conf
+}
+
 func TestReadConfiguration(t *testing.T) {
+	ConfigSetDefaults()
 	viper.SetConfigName("config-example")
 	err := readConfig()
 	if err != nil {
@@ -16,20 +27,12 @@ func TestReadConfiguration(t *testing.T) {
 }
 
 func TestReadNonExistingConfiguration(t *testing.T) {
+	ConfigSetDefaults()
 	viper.SetConfigName("config-404")
 	err := readConfig()
 	if err == nil {
 		t.Fatal("did not fail on reading a non existing config file")
 	}
-}
-
-func loadConfig(t *testing.T) *Config {
-	viper.SetConfigName("config-example")
-	conf, err := GetConfig()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return conf
 }
 
 func TestProxyAddress(t *testing.T) {
@@ -47,15 +50,51 @@ func TestCacheAutoUpdate(t *testing.T) {
 	assert.Equal(t, "15m", c.Cache.AutoUpdateDuration)
 }
 
-func TestHooks(t *testing.T) {
+func TestCallbacks(t *testing.T) {
 	c := loadConfig(t)
-	assert.Equal(t, 2, len(c.Callbacks.NotifyOnUpdateHooks))
+	assert.Equal(t, 4, len(c.Callbacks.NotifyOnUpdateHooks))
 
 	callback := c.Callbacks.NotifyOnUpdateHooks[0]
-	assert.Equal(t, "host.example.com", callback.URL.Host)
-	assert.Equal(t, "/whatever/to-call", callback.URL.Path)
-	assert.Equal(t, "https", callback.URL.Scheme)
+	assert.Equal(t, "stage", callback.Workspace)
+	assert.Equal(t, "foomo-stage", callback.Channel)
+}
 
-	assert.Equal(t, "1234", callback.APIKey)
-	assert.Equal(t, true, callback.VerifyTLS)
+func TestChannels(t *testing.T) {
+	c := loadConfig(t)
+	assert.Equal(t, 4, len(c.Channels))
+
+	channel, ok := c.Channels["foomo-stage"]
+	if !ok {
+		t.Fatal("foomo-stage channel not configured")
+	}
+
+	assert.Equal(t, "host.example.com", channel.URL.Host)
+	assert.Equal(t, "/whatever/to-call", channel.URL.Path)
+	assert.Equal(t, "https", channel.URL.Scheme)
+	assert.Equal(t, true, channel.VerifyTLS)
+	assert.Equal(t, "1234", channel.APIKey)
+	assert.Equal(t, "POST", channel.Method)
+}
+
+func TestFoomoChannelConfig(t *testing.T) {
+	c := loadConfig(t)
+
+	channel, ok := c.Channels["foomo-stage"]
+	if !ok {
+		t.Fatal("foomo channel not configured")
+	}
+
+	assert.Equal(t, ChannelTypeFoomo, channel.Type)
+	assert.Equal(t, ChannelTypeFoomo, channel.GetChannelType())
+}
+func TestSlackChannelConfig(t *testing.T) {
+	c := loadConfig(t)
+
+	channel, ok := c.Channels["slack"]
+	if !ok {
+		t.Fatal("slack channel not configured")
+	}
+
+	assert.Equal(t, ChannelTypeSlack, channel.Type)
+	assert.Equal(t, ChannelTypeSlack, channel.GetChannelType())
 }
