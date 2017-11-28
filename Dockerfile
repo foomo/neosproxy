@@ -15,5 +15,3 @@ COPY files/tmp /tmp
 EXPOSE 80
 
 ENTRYPOINT ["/usr/sbin/neosproxy"]
-
-CMD ["-address=:80", "-neos=http://neos/"]
