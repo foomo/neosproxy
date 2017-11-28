@@ -15,7 +15,7 @@ type Proxy struct {
 }
 
 func (p *Proxy) Run() error {
-	p.addInvalidationChannel(DefaultWorkspace, "")
+	p.addInvalidationChannel(DefaultWorkspace, "cron")
 	proxyHandler := httputil.NewSingleHostReverseProxy(p.Config.Neos.URL)
 	mux := http.NewServeMux()
 	mux.Handle("/contentserver/export/", proxyHandler)
