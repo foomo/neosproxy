@@ -16,6 +16,15 @@ type Proxy struct {
 	cacheInvalidationChannelsMutex *sync.RWMutex
 }
 
+func NewProxy(config *Config, apiKey string) *Proxy {
+	return &Proxy{
+		Config: config,
+		APIKey: apiKey,
+		CacheInvalidationChannels:      make(map[string](chan time.Time)),
+		cacheInvalidationChannelsMutex: &sync.RWMutex{},
+	}
+}
+
 func (p *Proxy) Run() error {
 	p.addInvalidationChannel(DefaultWorkspace, "cron")
 	proxyHandler := httputil.NewSingleHostReverseProxy(p.Config.Neos.URL)

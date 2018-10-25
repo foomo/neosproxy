@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/foomo/neosproxy"
@@ -28,12 +27,7 @@ func main() {
 	flag.Parse()
 
 	// prepare proxy
-	p := &neosproxy.Proxy{
-		Config: config,
-		APIKey: apiKey,
-		CacheInvalidationChannels:      make(map[string](chan time.Time)),
-		cacheInvalidationChannelsMutex: sync.RWMutex{},
-	}
+	p := neosproxy.NewProxy(config, apiKey)
 
 	// auto update
 	if config.Cache.AutoUpdateDuration != "" {
