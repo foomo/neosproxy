@@ -30,7 +30,13 @@ func (p *Proxy) invalidateCache(w http.ResponseWriter, r *http.Request) {
 
 	log.Println(fmt.Sprintf("%s\t%s", r.URL, "cache invalidation request"))
 
-	workspace := p.getRequestedWorkspace(r.URL)
+	channelIdentifier := p.getRequestedWorkspace(r.URL)
+	workspace, workspaceErr := p.Config.GetWorkspaceForChannelIdentifier(channelIdentifier)
+	if workspaceErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println(fmt.Sprintf("no workspace configured for channel identifier %s", channelIdentifier))
+		return
+	}
 	user := r.Header.Get("X-User")
 	channel := p.addInvalidationChannel(workspace, user)
 
