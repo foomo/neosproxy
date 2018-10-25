@@ -5,13 +5,24 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"sync"
 	"time"
 )
 
 type Proxy struct {
-	Config                    *Config
-	APIKey                    string
-	CacheInvalidationChannels map[string](chan time.Time)
+	Config                         *Config
+	APIKey                         string
+	CacheInvalidationChannels      map[string](chan time.Time)
+	cacheInvalidationChannelsMutex *sync.RWMutex
+}
+
+func NewProxy(config *Config, apiKey string) *Proxy {
+	return &Proxy{
+		Config: config,
+		APIKey: apiKey,
+		CacheInvalidationChannels:      make(map[string](chan time.Time)),
+		cacheInvalidationChannelsMutex: &sync.RWMutex{},
+	}
 }
 
 func (p *Proxy) Run() error {
@@ -34,9 +45,19 @@ func (p *Proxy) error(w http.ResponseWriter, r *http.Request, code int, msg stri
 
 // addInvalidationChannel adds a new invalidation channel
 func (p *Proxy) addInvalidationChannel(workspace string, user string) chan time.Time {
-	if _, ok := p.CacheInvalidationChannels[workspace]; !ok {
-		channel := make(chan time.Time, 1)
+
+	var channel chan time.Time
+	var ok bool
+
+	p.cacheInvalidationChannelsMutex.RLock()
+	channel, ok = p.CacheInvalidationChannels[workspace]
+	p.cacheInvalidationChannelsMutex.RUnlock()
+
+	if !ok {
+		channel = make(chan time.Time, 1)
+		p.cacheInvalidationChannelsMutex.Lock()
 		p.CacheInvalidationChannels[workspace] = channel
+		p.cacheInvalidationChannelsMutex.Unlock()
 		go func(workspace string, channel chan time.Time) {
 			for {
 				sleepTime := 5 * time.Second
@@ -55,5 +76,6 @@ func (p *Proxy) addInvalidationChannel(workspace string, user string) chan time.
 			}
 		}(workspace, channel)
 	}
-	return p.CacheInvalidationChannels[workspace]
+
+	return channel
 }

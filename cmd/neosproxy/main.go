@@ -27,11 +27,7 @@ func main() {
 	flag.Parse()
 
 	// prepare proxy
-	p := &neosproxy.Proxy{
-		Config: config,
-		APIKey: apiKey,
-		CacheInvalidationChannels: make(map[string](chan time.Time)),
-	}
+	p := neosproxy.NewProxy(config, apiKey)
 
 	// auto update
 	if config.Cache.AutoUpdateDuration != "" {

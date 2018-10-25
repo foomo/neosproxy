@@ -98,3 +98,17 @@ func TestSlackChannelConfig(t *testing.T) {
 	assert.Equal(t, ChannelTypeSlack, channel.Type)
 	assert.Equal(t, ChannelTypeSlack, channel.GetChannelType())
 }
+
+func TestGetWorkspaceForChannelIdentifier(t *testing.T) {
+	c := loadConfig(t)
+
+	workspace, err := c.GetWorkspaceForChannelIdentifier("foomo-stage")
+	assert.NoError(t, err, "no error expected")
+	assert.Equal(t, "stage", workspace, "stage workspace expected")
+	assert.NotEqual(t, "live", workspace, "live workspace not expected")
+
+	workspace, err = c.GetWorkspaceForChannelIdentifier("foomo-prod")
+	assert.NoError(t, err, "no error expected")
+	assert.Equal(t, "live", workspace, "live workspace expected")
+	assert.NotEqual(t, "stage", workspace, "stage workspace not expected")
+}
