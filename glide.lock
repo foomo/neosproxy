@@ -1,5 +1,5 @@
-hash: 754039624dc630670033781634c07bd6c6b179713a2a7a4f160efa0348ac6907
-updated: 2018-12-12T14:00:22.584789+01:00
+hash: c8774276cbc27688b992f05c04cf2e330655e27c5a22bc9b3cad5dae8fd66b60
+updated: 2018-12-24T02:41:18.010901+01:00
 imports:
 - name: github.com/auth0/go-jwt-middleware
   version: 5493cabe49f7bfa6e2ec444a09d334d90cd4e2bd
@@ -17,8 +17,6 @@ imports:
   version: e3702bed27f0d39777b0b37b664b6280e8ef8fbf
 - name: github.com/konsorten/go-windows-terminal-sequences
   version: 5c8c8bd35d3832f5d134ae1e1e375b69a4d25242
-- name: github.com/olebedev/emitter
-  version: 68bb25b251f61cde3824cc316f238f0da1704331
 - name: github.com/pkg/errors
   version: 059132a15dd08d6704c67711dae0cf35ab991756
 - name: github.com/Sirupsen/logrus
