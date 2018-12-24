@@ -32,7 +32,7 @@ test:
 	go test ./...
 
 run: clean
-	API_KEY="0000" go run cmd/neosproxy/main.go
+	go run cmd/neosproxy/main.go -config-file ./config-example.yaml
 
 
 latest-tag:

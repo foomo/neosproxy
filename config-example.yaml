@@ -1,0 +1,46 @@
+proxy:
+  address: "127.0.0.1:8000"
+  token: "advbfsb-adfgsgsg-4435sgs-afgsgdfg"
+
+neos:
+  url: "http://cms-example-hostname/"
+  workspaces:
+    - live
+    - stage
+#    - test
+
+cache:
+  # duration value on which to automatically update the proxy
+  autoUpdateDuration: "30m"
+  # cache directory
+  directory: "/tmp/cache"
+
+observer:
+  - name: "foomo-stage"
+    type: "foomo"
+    url: "https://host.example.com/whatever/to-call"
+    verify-tls: true
+    token: "1234"
+  - name: "foomo-prod"
+    type: "foomo"
+    url: "https://host.example.com/whatever/to-call"
+    verify-tls: true
+    token: "1234"
+  - name: "slack"
+    type: "slack"
+    url: "https://hooks.slack.com/services/foo/bar"
+    channel: "#dev-ops-test"
+  - name: "bla"
+    type: "webhook"
+    url: "https://host.example.com/whatever/to-call"
+    verify-tls: true
+    token: "1234"
+
+# observers can subscribe to multiple workspaces
+subscriptions:
+  live: ["foomo-prod", "foomo-stage", "slack"]
+#  test:
+#    - "foomo-stage"
+#    - "slack"
+  stage:
+    - "foomo-stage"
