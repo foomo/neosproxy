@@ -6,6 +6,7 @@ import (
 	"github.com/foomo/neosproxy/cache"
 	"github.com/foomo/neosproxy/config"
 	"github.com/foomo/neosproxy/logging"
+	"github.com/foomo/neosproxy/model"
 	"github.com/gorilla/mux"
 
 	content_cache "github.com/foomo/neosproxy/cache/content"
@@ -22,6 +23,8 @@ type Proxy struct {
 	router       *mux.Router
 	proxyHandler *httputil.ReverseProxy
 	contentCache *content_cache.Cache
+
+	status *model.Status
 }
 
 type basicAuth struct {

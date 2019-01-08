@@ -9,6 +9,7 @@ import (
 	"github.com/foomo/neosproxy/client/cms"
 	"github.com/foomo/neosproxy/config"
 	"github.com/foomo/neosproxy/logging"
+	"github.com/foomo/neosproxy/model"
 	"github.com/foomo/neosproxy/notifier"
 	"github.com/gorilla/mux"
 
@@ -28,6 +29,12 @@ func New(cfg *config.Config, contentLoader cms.ContentLoader, contentStore store
 		router:       mux.NewRouter(),
 		proxyHandler: httputil.NewSingleHostReverseProxy(cfg.Neos.URL),
 		contentCache: content_cache.New(cacheLifetime, contentStore, contentLoader, broker),
+
+		status: &model.Status{
+			Workspaces:      cfg.Neos.Workspaces,
+			ProviderReports: map[string]model.Report{},
+			ConsumerReports: map[string]model.Report{},
+		},
 	}
 	p.setupRoutes()
 	for _, workspace := range cfg.Neos.Workspaces {

@@ -13,9 +13,21 @@ import (
 	"github.com/foomo/neosproxy/client/cms"
 	"github.com/foomo/neosproxy/logging"
 	"github.com/gorilla/mux"
+	"gopkg.in/yaml.v2"
 
 	content_cache "github.com/foomo/neosproxy/cache/content"
 )
+
+type mime string
+
+const (
+	mimeTextPlain       mime = "text/plain"
+	mimeApplicationJSON mime = "application/json"
+)
+
+// ------------------------------------------------------------------------------------------------
+// ~ Proxy handler methods
+// ------------------------------------------------------------------------------------------------
 
 func (p *Proxy) getContent(w http.ResponseWriter, r *http.Request) {
 
@@ -199,6 +211,34 @@ func (p *Proxy) streamCachedNeosContentServerExport(w http.ResponseWriter, r *ht
 	log.WithDuration(start).WithField("size", bytefmt.ByteSize(uint64(written))).Info("streamed file")
 }
 
+func (p *Proxy) streamStatus(w http.ResponseWriter, r *http.Request) {
+
+	// logger
+	log := p.setupLogger(r, "status")
+
+	// stream
+	var errEncode error
+	contentNegotioation := parseAcceptHeader(r.Header.Get("accept"))
+	switch contentNegotioation {
+	case mimeApplicationJSON:
+		w.Header().Set("Content-Type", string(mimeApplicationJSON))
+		encoder := json.NewEncoder(w)
+		errEncode = encoder.Encode(p.status)
+	case mimeTextPlain:
+		w.Header().Set("Content-Type", "application/x-yaml")
+		encoder := yaml.NewEncoder(w)
+		errEncode = encoder.Encode(p.status)
+	}
+
+	// error handling
+	if errEncode != nil {
+		log.WithError(errEncode).WithField("content-negotiation", contentNegotioation).Error("failed streaming status")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+}
+
 // ------------------------------------------------------------------------------------------------
 // ~ Private methods
 // ------------------------------------------------------------------------------------------------
@@ -212,4 +252,19 @@ func getParameter(m map[string]string, key string) string {
 		return val
 	}
 	return ""
+}
+
+func parseAcceptHeader(accept string) mime {
+	mimes := strings.Split(accept, ",")
+	for _, mime := range mimes {
+		values := strings.Split(mime, ";")
+
+		switch values[0] {
+		case string(mimeApplicationJSON):
+			return mimeApplicationJSON
+		case string(mimeTextPlain):
+			return mimeTextPlain
+		}
+	}
+	return mimeApplicationJSON
 }
