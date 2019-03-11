@@ -3,17 +3,19 @@ proxy:
   token: "advbfsb-adfgsgsg-4435sgs-afgsgdfg"
 
 neos:
-  url: "http://cms-example-hostname/"
+  url: "http://cms/"
   workspaces:
     - live
     - stage
-#    - test
+  dimensions:
+    - de
+    - fr
 
 cache:
   # duration value on which to automatically update the proxy
   autoUpdateDuration: "30m"
   # cache directory
-  directory: "/tmp/cache"
+  directory: "/var/data/neosproxy"
 
 observer:
   - name: "foomo-stage"
