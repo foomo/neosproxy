@@ -1,5 +1,6 @@
 .*
 !.git*
 /changelog.md
-/bin
 /vendor
+/bin
+!/bin/neosproxy-linus-amd64
