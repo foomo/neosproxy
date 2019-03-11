@@ -61,6 +61,15 @@ func Load(filename string) (config *Config, err error) {
 		workspaceNames[workspace] = true
 	}
 
+	// dimensions
+	dimensionNames := map[string]bool{}
+	config.Neos.Dimensions = make([]string, len(conf.Neos.Dimensions))
+	for index, dimension := range conf.Neos.Dimensions {
+		dimension = strings.ToLower(dimension)
+		config.Neos.Dimensions[index] = dimension
+		dimensionNames[dimension] = true
+	}
+
 	// observers
 	observerNames := map[string]bool{}
 	for _, cfgFileObserver := range conf.Observer {

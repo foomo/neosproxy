@@ -19,7 +19,6 @@ import (
 // New proxy
 func New(cfg *config.Config, contentLoader cms.ContentLoader, contentStore store.CacheStore, cacheLifetime time.Duration) *Proxy {
 
-	broker := notifier.NewBroker()
 	p := &Proxy{
 		log:             logging.GetDefaultLogEntry(),
 		maintenance:     false,
@@ -28,18 +27,27 @@ func New(cfg *config.Config, contentLoader cms.ContentLoader, contentStore store
 
 		router:       mux.NewRouter(),
 		proxyHandler: httputil.NewSingleHostReverseProxy(cfg.Neos.URL),
-		contentCache: content_cache.New(cacheLifetime, contentStore, contentLoader, broker),
 
 		status: &model.Status{
 			Workspaces:      cfg.Neos.Workspaces,
 			ProviderReports: map[string]model.Report{},
 			ConsumerReports: map[string]model.Report{},
 		},
+		broker: notifier.NewBroker(),
 	}
-	p.setupRoutes()
+
+	// content cache for html from neos
+	p.contentCache = content_cache.New(cacheLifetime, contentStore, contentLoader, p.broker)
+
+	// sitemap / site structure cache for content servers
 	for _, workspace := range cfg.Neos.Workspaces {
-		p.workspaceCaches[workspace] = cache.New(broker, workspace, cfg)
+		p.workspaceCaches[workspace] = cache.New(p.broker, workspace, cfg)
 	}
+
+	// setup routes
+	p.setupRoutes()
+
+	// append oberservers
 	for _, observer := range cfg.Observer {
 		if observer.Webhook == nil {
 			continue
@@ -53,7 +61,7 @@ func New(cfg *config.Config, contentLoader cms.ContentLoader, contentStore store
 		for workspace, subscribers := range cfg.Subscriptions {
 			for _, subscriber := range subscribers {
 				if subscriber == n.GetName() {
-					broker.RegisterSitemapObserver(workspace, n)
+					p.broker.RegisterSitemapObserver(workspace, n)
 					l.WithField("workspace", workspace).Debug("notifier/observer registered at workspace")
 				}
 			}

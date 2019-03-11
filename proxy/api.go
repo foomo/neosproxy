@@ -111,6 +111,7 @@ func (p *Proxy) invalidateCache(w http.ResponseWriter, r *http.Request) {
 		logging.FieldID:        id,
 		"user":                 user,
 	})
+	log.Debug("cache invalidation request")
 
 	// invalidate all workspaces in case of "live" workspace
 	workspaces := []string{workspace}
@@ -121,7 +122,22 @@ func (p *Proxy) invalidateCache(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if len(p.config.Neos.Dimensions) == 0 {
+		log.Warn("no neos dimension configured")
+	}
+
 	for _, workspace := range workspaces {
+
+		for _, dimension := range p.config.Neos.Dimensions {
+			// @todo use channels and workers!!!
+			go func(id, dimension, workspace string) {
+				_, errInvalidate := p.contentCache.Invalidate(id, dimension, workspace)
+				if errInvalidate != nil {
+					log.WithError(errInvalidate).WithField(logging.FieldDimension, dimension).Error("invalidate content cache failed")
+				}
+			}(id, dimension, workspace)
+		}
+
 		// load workspace worker
 		workspaceCache, workspaceOK := p.workspaceCaches[workspace]
 		if !workspaceOK {
@@ -131,16 +147,8 @@ func (p *Proxy) invalidateCache(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// add invalidation request to queue
-		addedToQueue := workspaceCache.Invalidate()
-		if addedToQueue {
-			// p.contentCache.Invalidate(id, dimension, workspace)
-			// @todo: invalidate item per dimension
-			errRemoveAll := p.contentCache.RemoveAll()
-			if errRemoveAll != nil {
-				log.WithError(errRemoveAll).Error("failed to reset content cache")
-			}
-		}
+		// add invalidation request to queue (contentserver export)
+		workspaceCache.Invalidate()
 	}
 
 	w.WriteHeader(http.StatusAccepted)

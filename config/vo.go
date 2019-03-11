@@ -36,6 +36,7 @@ type Cache struct {
 type Neos struct {
 	URL        *url.URL
 	Workspaces []string
+	Dimensions []string
 }
 
 // Observer config struct
@@ -82,6 +83,7 @@ type configFile struct {
 	Neos struct {
 		URL        string `json:"url" yaml:"url"`
 		Workspaces []string
+		Dimensions []string
 	}
 	Cache struct {
 		AutoUpdateDuration string `json:"autoUpdateDuration" yaml:"autoUpdateDuration"`

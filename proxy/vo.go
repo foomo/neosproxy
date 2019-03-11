@@ -7,6 +7,7 @@ import (
 	"github.com/foomo/neosproxy/config"
 	"github.com/foomo/neosproxy/logging"
 	"github.com/foomo/neosproxy/model"
+	"github.com/foomo/neosproxy/notifier"
 	"github.com/gorilla/mux"
 
 	content_cache "github.com/foomo/neosproxy/cache/content"
@@ -25,6 +26,7 @@ type Proxy struct {
 	contentCache *content_cache.Cache
 
 	status *model.Status
+	broker *notifier.Broker
 }
 
 type basicAuth struct {

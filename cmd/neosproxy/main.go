@@ -2,10 +2,11 @@ package main
 
 import (
 	"flag"
+	"path/filepath"
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/foomo/neosproxy/cache/content/store/memory"
+	"github.com/foomo/neosproxy/cache/content/store/fs"
 	"github.com/foomo/neosproxy/client/cms"
 	"github.com/foomo/neosproxy/config"
 	"github.com/foomo/neosproxy/logging"
@@ -43,7 +44,8 @@ func main() {
 	}
 
 	// create content cache store
-	contentStore := memory.NewCacheStore()
+	// contentStore := memory.NewCacheStore()
+	contentStore := fs.NewCacheStore(filepath.Join(config.Cache.Directory, "content"))
 	cacheLifetime := time.Duration(0) // forever // time.Minute * 60
 
 	// create proxy
