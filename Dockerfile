@@ -1,17 +1,50 @@
-FROM scratch
+# -----------------------------------------------------------------------------
+# Builder Base
+# -----------------------------------------------------------------------------
+FROM golang:alpine as base
 
-COPY bin/neosproxy-linux-amd64 /usr/sbin/neosproxy
+RUN apk add --no-cache git glide upx \
+  && rm -rf /var/cache/apk/*
 
-# install ca root certificates for outgoing https calls
-# https://curl.haxx.se/docs/caextract.html
-# http://blog.codeship.com/building-minimal-docker-containers-for-go-applications/
-#ADD https://curl.haxx.se/ca/cacert.pem /etc/ssl/certs/ca-certificates.crt
-COPY files/cacert.pem /etc/ssl/certs/ca-certificates.crt
+WORKDIR /go/src/github.com/foomo/neosproxy
 
-COPY files/tmp /tmp
+COPY glide.yaml glide.lock ./
+RUN glide install
 
-VOLUME /htdocs
+
+
+# -----------------------------------------------------------------------------
+# Builder
+# -----------------------------------------------------------------------------
+FROM base as builder
+
+COPY . ./
+
+# Build the binary
+RUN glide install
+RUN CGO_ENABLED=0 go build -o /go/bin/neosproxy cmd/neosproxy/main.go
+
+# Compress the binary
+RUN upx /go/bin/neosproxy
+
+
+
+# -----------------------------------------------------------------------------
+# Container
+# -----------------------------------------------------------------------------
+FROM alpine:latest
+
+RUN apk add --no-cache \
+    tzdata ca-certificates \
+  && rm -rf /var/cache/apk/*
+
+# Required for alpine image and golang
+RUN echo "hosts: files dns" > /etc/nsswitch.conf
+
+COPY --from=builder /go/bin/neosproxy /usr/local/bin/neosproxy
+
+VOLUME ["/var/data/neosproxy"]
 
 EXPOSE 80
 
-ENTRYPOINT ["/usr/sbin/neosproxy"]
+ENTRYPOINT ["/usr/local/bin/neosproxy"]

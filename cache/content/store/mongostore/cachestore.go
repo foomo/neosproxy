@@ -16,15 +16,12 @@ import (
 
 const cacheStoreCollection = "cache"
 
-var _ store.CacheStore = mongoCacheStore{}
-
 //------------------------------------------------------------------
 // ~ TYPES
 //------------------------------------------------------------------
 
 type mongoCacheStore struct {
 	persistor *persistence.Persistor
-	store.CacheStore
 }
 
 //------------------------------------------------------------------

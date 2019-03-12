@@ -13,12 +13,6 @@ import (
 )
 
 //------------------------------------------------------------------
-// ~ CONSTANTS / VARS
-//------------------------------------------------------------------
-
-var _ store.CacheStore = fsCacheStore{}
-
-//------------------------------------------------------------------
 // ~ TYPES
 //------------------------------------------------------------------
 
@@ -29,8 +23,6 @@ type fsCacheStore struct {
 	lock sync.Mutex
 	rw   map[string]*sync.RWMutex
 	l    logging.Entry
-
-	store.CacheStore
 }
 
 //------------------------------------------------------------------
@@ -60,34 +52,42 @@ func NewCacheStore(cacheDir string) store.CacheStore {
 // ~ PUBLIC METHODS
 //------------------------------------------------------------------
 
-func (f fsCacheStore) Upsert(item store.CacheItem) (e error) {
+func (f *fsCacheStore) Upsert(item store.CacheItem) (e error) {
+	// key
 	key := f.getItemKey(item)
-	cacheFile := f.Lock(key)
-	defer f.Unlock(key)
 
+	// serialize
 	bytes, errMarshall := json.Marshal(item)
 	if errMarshall != nil {
 		return errMarshall
 	}
 
+	// lock
+	cacheFile := f.Lock(key)
+	defer f.Unlock(key)
+
+	// write to file
 	return ioutil.WriteFile(cacheFile, bytes, 0644)
 }
 
-func (f fsCacheStore) Get(hash string) (item store.CacheItem, e error) {
+func (f *fsCacheStore) Get(hash string) (item store.CacheItem, e error) {
 	key := f.getKey(hash)
 	cacheFile, _ := f.RLock(key)
-	defer f.RUnlock(key)
 
 	if _, err := os.Stat(cacheFile); os.IsNotExist(err) {
+		f.RUnlock(key)
 		e = content.ErrorNotFound
 		return
 	}
 
 	bytes, errReadFile := ioutil.ReadFile(cacheFile)
 	if errReadFile != nil {
+		f.RUnlock(key)
 		e = errReadFile
 		return
 	}
+
+	f.RUnlock(key)
 
 	item = store.CacheItem{}
 	errUnmarshall := json.Unmarshal(bytes, &item)
@@ -100,7 +100,7 @@ func (f fsCacheStore) Get(hash string) (item store.CacheItem, e error) {
 	return
 }
 
-func (f fsCacheStore) GetAll() (items []store.CacheItem, e error) {
+func (f *fsCacheStore) GetAll() (items []store.CacheItem, e error) {
 	files, errReadDir := ioutil.ReadDir(f.CacheDir)
 	if errReadDir != nil {
 		e = errReadDir
@@ -127,7 +127,7 @@ func (f fsCacheStore) GetAll() (items []store.CacheItem, e error) {
 	return
 }
 
-func (f fsCacheStore) Count() (int, error) {
+func (f *fsCacheStore) Count() (int, error) {
 	i := 0
 	files, err := ioutil.ReadDir(f.CacheDir)
 	if err != nil {
@@ -141,7 +141,7 @@ func (f fsCacheStore) Count() (int, error) {
 	return i, nil
 }
 
-func (f fsCacheStore) Remove(hash string) (e error) {
+func (f *fsCacheStore) Remove(hash string) (e error) {
 	key := f.getKey(hash)
 	cacheFile := f.Lock(key)
 	defer f.Unlock(key)
@@ -149,11 +149,11 @@ func (f fsCacheStore) Remove(hash string) (e error) {
 	return os.Remove(cacheFile)
 }
 
-func (f fsCacheStore) createCacheDir() error {
+func (f *fsCacheStore) createCacheDir() error {
 	return os.MkdirAll(f.CacheDir, 0755)
 }
 
-func (f fsCacheStore) RemoveAll() (e error) {
+func (f *fsCacheStore) RemoveAll() (e error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
@@ -176,10 +176,10 @@ func (f fsCacheStore) RemoveAll() (e error) {
 // ~ PRIVATE METHODS
 //------------------------------------------------------------------
 
-func (f fsCacheStore) getItemKey(item store.CacheItem) string {
+func (f *fsCacheStore) getItemKey(item store.CacheItem) string {
 	return f.getKey(item.Hash)
 }
 
-func (f fsCacheStore) getKey(hash string) string {
+func (f *fsCacheStore) getKey(hash string) string {
 	return hash + ".json"
 }

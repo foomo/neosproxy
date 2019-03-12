@@ -13,21 +13,14 @@ clean:
 	rm -fv bin/neosp*
 build: clean
 	go build -o bin/neosproxy cmd/neosproxy/main.go
-build-arch: clean build-linux
+build-arch: clean
 	GOOS=darwin GOARCH=amd64 go build -o bin/neosproxy-darwin-amd64 cmd/neosproxy/main.go
 build-linux: clean
 	GOOS=linux GOARCH=amd64 go build -o bin/neosproxy-linux-amd64 cmd/neosproxy/main.go
-build-docker: clean build-arch prepare-docker
-	docker build -t foomo/neosproxy:latest .
+build-docker: clean
+	docker build -t foomo/neosproxy:dev .
 prepare-docker:
 	curl -o files/cacert.pem https://curl.haxx.se/ca/cacert.pem
-#release: clean build-linux prepare-docker
-#	git add -f files/cacert.pem
-#	git add -f bin/neosproxy-linux-amd64
-#	git commit -m 'build release candidate - new binary added for docker autobuild'
-#	@echo "-------------------------"
-#	@echo "please make sure that version number has been bumped, then tag and push the git repo"
-#	@echo "-------------------------"
 test:
 	go test ./...
 

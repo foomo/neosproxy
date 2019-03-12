@@ -2,11 +2,12 @@ package notifier
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
+
+	"github.com/foomo/neosproxy/utils"
 )
 
 var _ Notifier = &ContentServer{}
@@ -28,11 +29,7 @@ func NewContentServerNotifier(name string, endpoint *url.URL, token string, veri
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return redirectAttemptedError
 		},
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: verifyTLS,
-			},
-		},
+		Transport: utils.GetDefaultTransport(verifyTLS),
 	}
 
 	return &ContentServer{

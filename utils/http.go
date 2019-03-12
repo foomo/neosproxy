@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto/tls"
 	"errors"
 	"net"
 	"net/http"
@@ -9,18 +10,22 @@ import (
 	"time"
 )
 
-func GetDefaultTransport() *http.Transport {
+func GetDefaultTransport(verifyTLS bool) *http.Transport {
 	return &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
+			Timeout:   10 * time.Second,
+			KeepAlive: 10 * time.Second,
 			DualStack: true,
 		}).DialContext,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
+		MaxIdleConns:          50,
+		IdleConnTimeout:       15 * time.Second,
+		TLSHandshakeTimeout:   5 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
+
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: !verifyTLS,
+		},
 	}
 }
 
@@ -30,7 +35,7 @@ func GetDefaultTransportFor(name string) (t *http.Transport, err error) {
 		err = errProxyFunc
 		return
 	}
-	t = GetDefaultTransport()
+	t = GetDefaultTransport(true)
 	if proxyFunc != nil {
 		t.Proxy = proxyFunc
 	}

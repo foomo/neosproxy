@@ -13,12 +13,6 @@ type MongoStore interface {
 }
 
 //------------------------------------------------------------------
-// ~ CONSTANTS / VARS
-//------------------------------------------------------------------
-
-// var _ MongoStore = mongoStores{}
-
-//------------------------------------------------------------------
 // ~ STRUCTS
 //------------------------------------------------------------------
 
@@ -42,7 +36,7 @@ func NewMongoStore(url string) (s MongoStore, e error) {
 
 	// init stores
 	s = &mongoStores{
-		cache: newCacheStore(cachePersistor),
+		cache: NewCacheStore(cachePersistor),
 	}
 
 	return
