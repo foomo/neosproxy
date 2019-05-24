@@ -86,18 +86,17 @@ func (f *fsCacheStore) hashKey(key string) string {
 
 func (f *fsCacheStore) rwLock(hashKey string) *sync.RWMutex {
 	f.lock.Lock()
+	defer f.lock.Unlock()
 
 	if f.rw == nil {
 		f.rw = make(map[string]*sync.RWMutex)
 	}
 
 	if result, ok := f.rw[hashKey]; ok {
-		f.lock.Unlock()
 		return result
 	}
 
 	var result sync.RWMutex
 	f.rw[hashKey] = &result
-	f.lock.Unlock()
 	return &result
 }
