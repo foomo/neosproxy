@@ -1,5 +1,5 @@
-hash: c8774276cbc27688b992f05c04cf2e330655e27c5a22bc9b3cad5dae8fd66b60
-updated: 2018-12-24T02:41:18.010901+01:00
+hash: 8cbd94d0ad0b5a062a6ac5ed400165c1e8d9bfcec4038c65f5651a6f20180611
+updated: 2019-03-13T18:10:37.890599+01:00
 imports:
 - name: github.com/auth0/go-jwt-middleware
   version: 5493cabe49f7bfa6e2ec444a09d334d90cd4e2bd
@@ -8,15 +8,11 @@ imports:
 - name: github.com/dgrijalva/jwt-go
   version: 06ea1031745cb8b3dab3f6a236daf2b0aa468b7e
 - name: github.com/foomo/shop
-  version: e55de455dd26d50c2033008174da3bff0125e218
+  version: 644b0b683ba12cd23571439a47f2222947601558
   subpackages:
   - persistence
-- name: github.com/gorilla/context
-  version: 51ce91d2eaddeca0ef29a71d766bb3634dadf729
 - name: github.com/gorilla/mux
   version: e3702bed27f0d39777b0b37b664b6280e8ef8fbf
-- name: github.com/konsorten/go-windows-terminal-sequences
-  version: 5c8c8bd35d3832f5d134ae1e1e375b69a4d25242
 - name: github.com/pkg/errors
   version: 059132a15dd08d6704c67711dae0cf35ab991756
 - name: github.com/Sirupsen/logrus
@@ -26,11 +22,15 @@ imports:
   subpackages:
   - assert
 - name: golang.org/x/crypto
-  version: 81e90905daefcd6fd217b62423c0908922eadb30
+  version: ff983b9c42bc9fbf91556e191cc8efb585c16908
   subpackages:
   - ssh/terminal
+- name: golang.org/x/sync
+  version: f52d1811a62927559de87708c8913c1650ce4f26
+  subpackages:
+  - singleflight
 - name: golang.org/x/sys
-  version: b05ddf57801d2239d6ab0ee35f9d981e0420f4ac
+  version: 95c6576299259db960f6c5b9b69ea52422860fce
   subpackages:
   - unix
   - windows
@@ -45,7 +45,7 @@ imports:
   version: 51d6538a90f86fe93ac480b35f37b2be17fef232
 testImports:
 - name: github.com/davecgh/go-spew
-  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
+  version: 8991bc29aa16c548c550c7ff78260e27b9ab7c73
   subpackages:
   - spew
 - name: github.com/pmezard/go-difflib

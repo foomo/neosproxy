@@ -1,6 +1,8 @@
 package store
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"time"
 )
@@ -19,6 +21,7 @@ type CacheItem struct {
 	validUntil time.Time
 
 	HTML string
+	Etag string // hashed fingerprint of html content
 }
 
 // NewCacheItem will create a new cache item
@@ -31,10 +34,25 @@ func NewCacheItem(id string, dimension string, workspace string, html string, va
 		created:    time.Now(),
 		validUntil: validUntil,
 		HTML:       html,
+		Etag:       generateFingerprint(html),
 	}
+}
+
+// GetEtag returns an etag
+func (item *CacheItem) GetEtag() string {
+	if item.Etag != "" {
+		return item.Etag
+	}
+	return generateFingerprint(item.HTML)
 }
 
 // GetHash will return a cache item hash
 func GetHash(id, dimension, workspace string) string {
 	return strings.Join([]string{workspace, dimension, id}, "_")
+}
+
+func generateFingerprint(data string) string {
+	sha := sha256.New()
+	sha.Write([]byte(data))
+	return hex.EncodeToString(sha.Sum(nil))
 }

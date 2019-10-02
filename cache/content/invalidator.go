@@ -1,6 +1,7 @@
 package content
 
 import (
+	"strings"
 	"time"
 
 	"github.com/foomo/neosproxy/cache/content/store"
@@ -11,8 +12,7 @@ func (c *Cache) RemoveAll() (err error) {
 	return c.store.RemoveAll()
 }
 
-// Invalidate cache item
-func (c *Cache) Invalidate(id, dimension, workspace string) (item store.CacheItem, err error) {
+func (c *Cache) invalidator(id, dimension, workspace string) (item store.CacheItem, err error) {
 
 	// timer
 	start := time.Now()
@@ -40,7 +40,23 @@ func (c *Cache) Invalidate(id, dimension, workspace string) (item store.CacheIte
 		Duration: time.Since(start),
 	})
 
-	// done
+	return
+}
+
+// Invalidate cache item
+func (c *Cache) Invalidate(id, dimension, workspace string) (item store.CacheItem, err error) {
+
+	groupName := strings.Join([]string{"invalidate", id, dimension, workspace}, "-")
+	itemInterfaced, errThrottled, _ := c.invalidationRequestGroup.Do(groupName, func() (i interface{}, e error) {
+		return c.invalidator(id, dimension, workspace)
+	})
+
+	if errThrottled != nil {
+		err = errThrottled
+		return
+	}
+
+	item = itemInterfaced.(store.CacheItem)
 	return
 }
 

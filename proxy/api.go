@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/foomo/neosproxy/cache/content/store"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/cloudfoundry/bytefmt"
 	"github.com/foomo/neosproxy/cache"
@@ -50,6 +52,17 @@ func (p *Proxy) getContent(w http.ResponseWriter, r *http.Request) {
 		logging.FieldID:        id,
 	})
 
+	// etag cache handling
+	headerEtag := r.Header.Get("ETag")
+	if headerEtag != "" {
+		etag, errEtag := p.contentCache.GetEtag(store.GetHash(id, dimension, workspace))
+		if errEtag == nil && etag != "" && etag == headerEtag {
+			w.WriteHeader(http.StatusNotModified)
+			log.WithDuration(start).Debug("content not modified")
+			return
+		}
+	}
+
 	// try cache hit, invalidate in case of item not found
 	item, errCacheGet := p.contentCache.Get(id, dimension, workspace)
 	if errCacheGet != nil {
@@ -78,6 +91,8 @@ func (p *Proxy) getContent(w http.ResponseWriter, r *http.Request) {
 		HTML: item.HTML,
 	}
 
+	w.Header().Set("ETag", item.GetEtag())
+
 	// stream json response
 	encoder := json.NewEncoder(w)
 	errEncode := encoder.Encode(data)
@@ -88,7 +103,7 @@ func (p *Proxy) getContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// done
-	log.WithDuration(start).Debug("served content")
+	log.WithDuration(start).Debug("content served")
 	return
 }
 
@@ -241,10 +256,85 @@ func (p *Proxy) streamStatus(w http.ResponseWriter, r *http.Request) {
 	// error handling
 	if errEncode != nil {
 		log.WithError(errEncode).WithField("content-negotiation", contentNegotioation).Error("failed streaming status")
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "failed streaming status", http.StatusInternalServerError)
 		return
 	}
 
+}
+
+func (p *Proxy) getAllEtags(w http.ResponseWriter, r *http.Request) {
+
+	// extract request data
+	workspace := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("workspace")))
+
+	// validate workspace
+	if workspace == "" {
+		workspace = cms.WorkspaceLive
+	}
+
+	// logger
+	log := p.setupLogger(r, "getAllEtags").WithField(logging.FieldWorkspace, workspace)
+
+	etags := p.contentCache.GetAllEtags(workspace)
+
+	w.Header().Set("Content-Type", string(mimeApplicationJSON))
+	encoder := json.NewEncoder(w)
+	errEncode := encoder.Encode(etags)
+
+	// error handling
+	if errEncode != nil {
+		log.WithError(errEncode).Error("failed encoding etags")
+		http.Error(w, "failed encoding etags", http.StatusInternalServerError)
+		return
+	}
+
+	return
+}
+
+func (p *Proxy) getEtag(w http.ResponseWriter, r *http.Request, hash string) {
+	// logger
+	log := p.setupLogger(r, "getEtag").WithField(logging.FieldID, hash)
+
+	etag, errEtag := p.contentCache.GetEtag(hash)
+
+	// error handling
+	if errEtag != nil {
+		log.WithError(errEtag).Error("failed getting etag")
+		http.Error(w, "failed getting etag", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", string(mimeTextPlain))
+	w.Header().Set("ETag", etag)
+	w.Write([]byte(etag))
+
+	return
+}
+
+func (p *Proxy) getEtagByID(w http.ResponseWriter, r *http.Request) {
+	// extract request data
+	workspace := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("workspace")))
+
+	// validate workspace
+	if workspace == "" {
+		workspace = cms.WorkspaceLive
+	}
+
+	// extract request data
+	id := getRequestParameter(r, "id")
+	dimension := getRequestParameter(r, "dimension")
+
+	hash := store.GetHash(id, dimension, workspace)
+
+	p.getEtag(w, r, hash)
+}
+
+func (p *Proxy) getEtagByHash(w http.ResponseWriter, r *http.Request) {
+
+	// extract request data
+	hash := getRequestParameter(r, "hash")
+
+	p.getEtag(w, r, hash)
 }
 
 // ------------------------------------------------------------------------------------------------
