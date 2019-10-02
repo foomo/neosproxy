@@ -26,3 +26,11 @@ func (c *Cache) Len() int {
 	}
 	return counter
 }
+
+func (c *Cache) GetAllEtags(workspace string) (etags map[string]string) {
+	return c.store.GetAllEtags(workspace)
+}
+
+func (c *Cache) GetEtag(hash string) (etag string, e error) {
+	return c.store.GetEtag(hash)
+}

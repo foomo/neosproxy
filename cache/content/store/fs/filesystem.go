@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/foomo/neosproxy/cache/content"
 	"github.com/foomo/neosproxy/cache/content/store"
@@ -23,6 +24,9 @@ type fsCacheStore struct {
 	lock sync.Mutex
 	rw   map[string]*sync.RWMutex
 	l    logging.Entry
+
+	lockEtags sync.RWMutex
+	etags     map[string]string
 }
 
 //------------------------------------------------------------------
@@ -38,14 +42,21 @@ func NewCacheStore(cacheDir string) store.CacheStore {
 		l.WithError(err).Fatal("failed creating cache directory")
 	}
 
-	s := &fsCacheStore{
+	f := &fsCacheStore{
 		CacheDir: cacheDir,
-		lock:     sync.Mutex{},
-		rw:       make(map[string]*sync.RWMutex),
-		l:        l,
+
+		l: l,
+
+		lock: sync.Mutex{},
+		rw:   make(map[string]*sync.RWMutex),
+
+		lockEtags: sync.RWMutex{},
+		etags:     make(map[string]string),
 	}
 
-	return s
+	go f.initEtagCache()
+
+	return f
 }
 
 //------------------------------------------------------------------
@@ -56,6 +67,11 @@ func (f *fsCacheStore) Upsert(item store.CacheItem) (e error) {
 	// key
 	key := f.getItemKey(item)
 
+	// validate etag
+	if item.Etag == "" {
+		item.Etag = item.GetEtag()
+	}
+
 	// serialize
 	bytes, errMarshall := json.Marshal(item)
 	if errMarshall != nil {
@@ -64,10 +80,54 @@ func (f *fsCacheStore) Upsert(item store.CacheItem) (e error) {
 
 	// lock
 	cacheFile := f.Lock(key)
-	defer f.Unlock(key)
 
 	// write to file
-	return ioutil.WriteFile(cacheFile, bytes, 0644)
+	errWrite := ioutil.WriteFile(cacheFile, bytes, 0644)
+	if errWrite != nil {
+		f.Unlock(key)
+		e = errWrite
+		return
+	}
+	f.Unlock(key)
+
+	// update etag
+	f.upsertEtag(item.Hash, item.Etag)
+
+	return nil
+}
+
+func (f *fsCacheStore) GetAllEtags(workspace string) (etags map[string]string) {
+	f.lockEtags.RLock()
+	etags = make(map[string]string)
+	for hash, etag := range f.etags {
+		if !strings.HasPrefix(hash, workspace) {
+			continue
+		}
+		etags[hash] = etag
+	}
+	f.lockEtags.RUnlock()
+	return
+}
+
+func (f *fsCacheStore) GetEtag(hash string) (etag string, e error) {
+	f.lockEtags.RLock()
+	if value, ok := f.etags[hash]; ok {
+		etag = value
+		f.lockEtags.RUnlock()
+		return
+	}
+	f.lockEtags.RUnlock()
+
+	item, errGet := f.Get(hash)
+	if errGet != nil {
+		e = errGet
+		return
+	}
+
+	etag = item.GetEtag()
+	f.upsertEtag(hash, etag)
+
+	return
 }
 
 func (f *fsCacheStore) Get(hash string) (item store.CacheItem, e error) {
@@ -146,7 +206,17 @@ func (f *fsCacheStore) Remove(hash string) (e error) {
 	cacheFile := f.Lock(key)
 	defer f.Unlock(key)
 
-	return os.Remove(cacheFile)
+	errRemove := os.Remove(cacheFile)
+	if errRemove != nil {
+		e = errRemove
+		return
+	}
+
+	f.lockEtags.Lock()
+	delete(f.etags, hash)
+	f.lockEtags.Unlock()
+
+	return nil
 }
 
 func (f *fsCacheStore) createCacheDir() error {
@@ -163,6 +233,10 @@ func (f *fsCacheStore) RemoveAll() (e error) {
 		return errRemoveAll
 	}
 
+	f.lockEtags.Lock()
+	f.etags = make(map[string]string)
+	f.lockEtags.Unlock()
+
 	errCreateCache := f.createCacheDir()
 	if errCreateCache != nil {
 		f.l.WithError(errCreateCache).Error("unable to re-create cache directory")
@@ -175,6 +249,44 @@ func (f *fsCacheStore) RemoveAll() (e error) {
 //------------------------------------------------------------------
 // ~ PRIVATE METHODS
 //------------------------------------------------------------------
+
+func (f *fsCacheStore) initEtagCache() {
+	start := time.Now()
+	l := f.l.WithField(logging.FieldFunction, "initEtagCache")
+	files, errReadDir := ioutil.ReadDir(f.CacheDir)
+	if errReadDir != nil {
+		l.WithError(errReadDir).Error("failed reading cache dir")
+		return
+	}
+
+	l.Debug("init etag cache")
+	counter := 0
+	for _, file := range files {
+		if !file.IsDir() {
+			filename := file.Name()
+			index := strings.Index(filename, ".")
+			if index >= 0 {
+				filename = filename[0:index]
+			}
+			item, errGet := f.Get(filename)
+			if errGet != nil {
+				l.WithError(errGet).Warn("could not load cache item")
+				continue
+			}
+			counter++
+			f.upsertEtag(item.Hash, item.GetEtag())
+		}
+	}
+	l.WithField("len", counter).WithDuration(start).Debug("etag cache initialized")
+
+	return
+}
+
+func (f *fsCacheStore) upsertEtag(hash, etag string) {
+	f.lockEtags.Lock()
+	f.etags[hash] = etag
+	f.lockEtags.Unlock()
+}
 
 func (f *fsCacheStore) getItemKey(item store.CacheItem) string {
 	return f.getKey(item.Hash)

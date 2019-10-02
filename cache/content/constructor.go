@@ -5,6 +5,7 @@ import (
 
 	"github.com/foomo/neosproxy/cache/content/store"
 	"github.com/foomo/neosproxy/client/cms"
+	"golang.org/x/sync/singleflight"
 )
 
 // New will return a newly created content cache
@@ -15,7 +16,8 @@ func New(cacheLifetime time.Duration, store store.CacheStore, loader cms.Content
 		store:    store,
 
 		// invalidationChannel: make(chan InvalidationRequest),
-		lifetime: cacheLifetime,
+		invalidationRequestGroup: &singleflight.Group{},
+		lifetime:                 cacheLifetime,
 	}
 	return c
 }

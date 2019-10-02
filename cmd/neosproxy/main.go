@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/foomo/neosproxy/cache/content/store/fs"
 	"github.com/foomo/neosproxy/client/cms"
 	"github.com/foomo/neosproxy/config"

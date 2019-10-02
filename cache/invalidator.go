@@ -5,9 +5,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/cloudfoundry/bytefmt"
 	"github.com/foomo/neosproxy/logging"
+	"github.com/sirupsen/logrus"
 )
 
 // Invalidate cache maybe invalidates cache, but skips requests if invalidation queue is already full

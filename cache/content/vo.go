@@ -5,14 +5,16 @@ import (
 
 	"github.com/foomo/neosproxy/cache/content/store"
 	"github.com/foomo/neosproxy/client/cms"
+	"golang.org/x/sync/singleflight"
 )
 
 // Cache workspace items
 type Cache struct {
-	observer            Observer
-	loader              cms.ContentLoader
-	store               store.CacheStore
-	invalidationChannel chan InvalidationRequest
+	observer                 Observer
+	loader                   cms.ContentLoader
+	store                    store.CacheStore
+	invalidationChannel      chan InvalidationRequest
+	invalidationRequestGroup *singleflight.Group
 
 	lifetime time.Duration // time until an item must be re-invalidated (< 0 === never)
 }

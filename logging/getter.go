@@ -3,7 +3,7 @@ package logging
 import (
 	"errors"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 func GetDefaultLogEntry() Entry {

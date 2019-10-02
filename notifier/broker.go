@@ -3,7 +3,7 @@ package notifier
 import (
 	"sync"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/foomo/neosproxy/cache"
 	"github.com/foomo/neosproxy/logging"
 
