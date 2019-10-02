@@ -9,7 +9,7 @@ import (
 
 	"github.com/foomo/neosproxy/cache/content/store"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/cloudfoundry/bytefmt"
 	"github.com/foomo/neosproxy/cache"
 	"github.com/foomo/neosproxy/client/cms"
