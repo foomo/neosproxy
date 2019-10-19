@@ -27,6 +27,9 @@ type Proxy struct {
 
 	status *model.Status
 	broker *notifier.Broker
+
+	servedStatsChan    chan bool
+	servedStatsCounter uint // served requests per minute
 }
 
 type basicAuth struct {

@@ -9,12 +9,12 @@ import (
 
 	"github.com/foomo/neosproxy/cache/content/store"
 
-	"github.com/sirupsen/logrus"
 	"github.com/cloudfoundry/bytefmt"
 	"github.com/foomo/neosproxy/cache"
 	"github.com/foomo/neosproxy/client/cms"
 	"github.com/foomo/neosproxy/logging"
 	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 
 	content_cache "github.com/foomo/neosproxy/cache/content"
@@ -75,10 +75,10 @@ func (p *Proxy) getContent(w http.ResponseWriter, r *http.Request) {
 
 		// invalidate content
 		startInvalidation := time.Now()
-		itemInvalidated, errCacheInvalidate := p.contentCache.Invalidate(id, dimension, workspace)
+		itemInvalidated, errCacheInvalidate := p.contentCache.Load(id, dimension, workspace)
 		if errCacheInvalidate != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			log.WithError(errCacheInvalidate).Error("cache invalidation failed")
+			log.WithError(errCacheInvalidate).Error("serving uncached item failed")
 			return
 		}
 		log.WithDuration(startInvalidation).WithField("len", p.contentCache.Len()).Debug("invalidated content item")
@@ -88,7 +88,8 @@ func (p *Proxy) getContent(w http.ResponseWriter, r *http.Request) {
 
 	// prepare response data
 	data := &cms.Content{
-		HTML: item.HTML,
+		HTML:              item.HTML,
+		CacheDependencies: item.Dependencies,
 	}
 
 	w.Header().Set("ETag", item.GetEtag())
@@ -103,7 +104,8 @@ func (p *Proxy) getContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// done
-	log.WithDuration(start).Debug("content served")
+	// log.WithDuration(start).Debug("content served")
+	p.servedStatsChan <- true
 	return
 }
 
@@ -144,13 +146,8 @@ func (p *Proxy) invalidateCache(w http.ResponseWriter, r *http.Request) {
 	for _, workspace := range workspaces {
 
 		for _, dimension := range p.config.Neos.Dimensions {
-			// @todo use channels and workers!!!
-			go func(id, dimension, workspace string) {
-				_, errInvalidate := p.contentCache.Invalidate(id, dimension, workspace)
-				if errInvalidate != nil {
-					log.WithError(errInvalidate).WithField(logging.FieldDimension, dimension).Error("invalidate content cache failed")
-				}
-			}(id, dimension, workspace)
+			// add invalidation request / job / task
+			p.contentCache.Invalidate(id, dimension, workspace)
 		}
 
 		// load workspace worker

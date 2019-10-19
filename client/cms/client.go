@@ -2,6 +2,7 @@ package cms
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -27,7 +28,7 @@ func New(endpoint string) (*Client, error) {
 
 	endpointURL, err := url.Parse(endpoint)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse the url from 'endpoint'")
+		return nil, errors.Wrap(err, "could not parse url from 'endpoint'")
 	}
 
 	transport, transportErr := utils.GetDefaultTransportFor("CMS")
@@ -36,7 +37,7 @@ func New(endpoint string) (*Client, error) {
 	}
 
 	httpClient := &http.Client{
-		Timeout:   time.Second * 5,
+		Timeout:   time.Second * 30,
 		Transport: transport,
 	}
 
@@ -76,11 +77,10 @@ func (c *Client) NewGetRequest(path string, body interface{}) (*http.Request, er
 }
 
 //Do will send an API request and returns the API response (decodes and serializes)
-func (c *Client) Do(req *http.Request, v interface{}) *ClientError {
-
-	resp, err := c.client.Do(req)
+func (c *Client) Do(req *http.Request, ctx context.Context, v interface{}) *ClientError {
+	resp, err := c.client.Do(req.WithContext(ctx))
 	if err != nil {
-		return CreateClientError(errors.Wrap(err, "could not create a new request"), req, resp, nil)
+		return CreateClientError(errors.Wrap(err, "could not execute request"), req, resp, nil)
 	}
 	defer resp.Body.Close()
 
