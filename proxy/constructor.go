@@ -39,8 +39,8 @@ func New(cfg *config.Config, contentLoader cms.ContentLoader, contentStore store
 	}
 
 	go func() {
+		tick := time.Tick(time.Minute * 1)
 		for {
-			tick := time.Tick(time.Minute * 1)
 			select {
 			case <-tick:
 				p.log.WithField("requests", p.servedStatsCounter).Info("requests served in the last 60 seconds")
