@@ -7,10 +7,14 @@ import (
 )
 
 var (
-	ErrorUnknown     = errors.New("unknown error occured")
-	ErrorRequest     = errors.New("request error")
-	ErrorResponse    = errors.New("response error")
-	ErrorMaintenance = errors.New("cms in maintenance mode")
+	ErrorUnknown             = errors.New("unknown error occured")
+	ErrorRequest             = errors.New("request error")
+	ErrorResponse            = errors.New("response error")
+	ErrorResponseTimeout     = errors.New("cms response timeout")
+	ErrorMaintenance         = errors.New("cms in maintenance mode")
+	ErrorNotFound            = errors.New("resource not found")
+	ErrorBadRequest          = errors.New("bad request")
+	ErrorInternalServerError = errors.New("internal server error")
 )
 
 type ClientError struct {

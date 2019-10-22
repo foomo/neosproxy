@@ -20,21 +20,30 @@ type CacheItem struct {
 	created    time.Time
 	validUntil time.Time
 
-	HTML string
-	Etag string // hashed fingerprint of html content
+	HTML         string
+	Etag         string // hashed fingerprint of html content
+	Dependencies []string
+}
+
+type CacheDependencies struct {
+	ID           string
+	Dimension    string
+	Workspace    string
+	Dependencies []string
 }
 
 // NewCacheItem will create a new cache item
-func NewCacheItem(id string, dimension string, workspace string, html string, validUntil time.Time) CacheItem {
+func NewCacheItem(id string, dimension string, workspace string, html string, dependencies []string, validUntil time.Time) CacheItem {
 	return CacheItem{
-		Hash:       GetHash(id, dimension, workspace),
-		ID:         id,
-		Dimension:  dimension,
-		Workspace:  workspace,
-		created:    time.Now(),
-		validUntil: validUntil,
-		HTML:       html,
-		Etag:       generateFingerprint(html),
+		Hash:         GetHash(id, dimension, workspace),
+		ID:           id,
+		Dimension:    dimension,
+		Workspace:    workspace,
+		created:      time.Now(),
+		validUntil:   validUntil,
+		HTML:         html,
+		Etag:         generateFingerprint(html),
+		Dependencies: dependencies,
 	}
 }
 

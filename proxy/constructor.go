@@ -33,11 +33,26 @@ func New(cfg *config.Config, contentLoader cms.ContentLoader, contentStore store
 			ProviderReports: map[string]model.Report{},
 			ConsumerReports: map[string]model.Report{},
 		},
-		broker: notifier.NewBroker(),
+		broker:             notifier.NewBroker(),
+		servedStatsChan:    make(chan bool),
+		servedStatsCounter: uint(0),
 	}
 
+	go func() {
+		for {
+			tick := time.Tick(time.Minute * 1)
+			select {
+			case <-tick:
+				p.log.WithField("requests", p.servedStatsCounter).Info("requests served in the last 60 seconds")
+				p.servedStatsCounter = uint(0)
+			case <-p.servedStatsChan:
+				p.servedStatsCounter++
+			}
+		}
+	}()
+
 	// content cache for html from neos
-	p.contentCache = content_cache.New(cacheLifetime, contentStore, contentLoader, p.broker)
+	p.contentCache = content_cache.New(cacheLifetime, contentStore, contentLoader, p.broker, p.log)
 
 	// sitemap / site structure cache for content servers
 	for _, workspace := range cfg.Neos.Workspaces {

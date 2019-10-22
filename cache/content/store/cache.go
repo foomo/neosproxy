@@ -10,6 +10,8 @@ type CacheStore interface {
 	GetEtag(hash string) (etag string, e error)
 	GetAllEtags(workspace string) (etags map[string]string)
 
+	GetAllCacheDependencies() ([]CacheDependencies, error)
+
 	Count() (int, error)
 
 	Remove(hash string) (e error)

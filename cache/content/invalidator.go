@@ -1,10 +1,12 @@
 package content
 
 import (
+	"context"
 	"strings"
 	"time"
 
 	"github.com/foomo/neosproxy/cache/content/store"
+	"github.com/sirupsen/logrus"
 )
 
 // RemoveAll will reset whole cache by dropping all items
@@ -12,43 +14,36 @@ func (c *Cache) RemoveAll() (err error) {
 	return c.store.RemoveAll()
 }
 
-func (c *Cache) invalidator(id, dimension, workspace string) (item store.CacheItem, err error) {
-
-	// timer
-	start := time.Now()
-
-	// load item
-	cmsContent, errGetContent := c.loader.GetContent(id, dimension, workspace)
-	if errGetContent != nil {
-		err = errGetContent
-		return
+// Invalidate creates an invalidation job and adds it to the queue
+// serveral workers will take care of job execution
+func (c *Cache) Invalidate(id, dimension, workspace string) {
+	c.log.WithFields(logrus.Fields{
+		"id":        id,
+		"dimension": dimension,
+		"workspace": workspace,
+	}).Info("content cache invalidation request added to queue")
+	req := InvalidationRequest{
+		CreatedAt:        time.Now(),
+		ID:               id,
+		Dimension:        dimension,
+		Workspace:        workspace,
+		ExecutionCounter: 0,
 	}
-
-	// prepare cache item
-	item = store.NewCacheItem(id, dimension, workspace, cmsContent.HTML, c.validUntil(cmsContent.ValidUntil))
-
-	// write item to cache
-	errUpsert := c.store.Upsert(item)
-	if errUpsert != nil {
-		err = errUpsert
-		return
-	}
-
-	// notify observer
-	c.observer.Notify(InvalidationResponse{
-		Item:     item,
-		Duration: time.Since(start),
-	})
-
-	return
+	c.invalidationChannel <- req
 }
 
-// Invalidate cache item
-func (c *Cache) Invalidate(id, dimension, workspace string) (item store.CacheItem, err error) {
+// Load will immediately load content from NEOS and persist it as a cache item
+// no retry if it fails
+func (c *Cache) Load(id, dimension, workspace string) (item store.CacheItem, err error) {
 
 	groupName := strings.Join([]string{"invalidate", id, dimension, workspace}, "-")
 	itemInterfaced, errThrottled, _ := c.invalidationRequestGroup.Do(groupName, func() (i interface{}, e error) {
-		return c.invalidator(id, dimension, workspace)
+		return c.invalidate(InvalidationRequest{
+			CreatedAt: time.Now(),
+			ID:        id,
+			Dimension: dimension,
+			Workspace: workspace,
+		})
 	})
 
 	if errThrottled != nil {
@@ -57,6 +52,72 @@ func (c *Cache) Invalidate(id, dimension, workspace string) (item store.CacheIte
 	}
 
 	item = itemInterfaced.(store.CacheItem)
+	return
+}
+
+// invalidate cache item, load fresh content from NEOS
+func (c *Cache) invalidate(req InvalidationRequest) (item store.CacheItem, err error) {
+
+	// timer
+	start := time.Now()
+
+	timeout := 10 * time.Second
+	if req.ExecutionCounter >= 5 {
+		timeout = 30 * time.Second
+	}
+
+	// context
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	// load item
+	cmsContent, errGetContent := c.loader.GetContent(req.ID, req.Dimension, req.Workspace, ctx)
+	if errGetContent != nil {
+		err = errGetContent
+		return
+	}
+
+	// update cache dependencies
+	if len(cmsContent.CacheDependencies) > 0 {
+		for _, targetID := range cmsContent.CacheDependencies {
+			c.cacheDependencies.Set(req.ID, targetID, req.Dimension, req.Workspace)
+		}
+	}
+
+	// invalidate dependencies
+	dependencies := c.cacheDependencies.Get(req.ID, req.Dimension, req.Workspace)
+	if len(dependencies) > 0 {
+		for _, nodeID := range dependencies {
+			c.Invalidate(nodeID, req.Dimension, req.Workspace)
+		}
+	}
+
+	// prepare cache item
+	item = store.NewCacheItem(req.ID, req.Dimension, req.Workspace, cmsContent.HTML, cmsContent.CacheDependencies, c.validUntil(cmsContent.ValidUntil))
+
+	// write item to cache
+	errUpsert := c.store.Upsert(item)
+	if errUpsert != nil {
+		err = errUpsert
+		return
+	}
+
+	// logging
+	c.log.WithFields(logrus.Fields{
+		"id":        req.ID,
+		"dimension": req.Dimension,
+		"workspace": req.Workspace,
+		"retry":     req.ExecutionCounter,
+		"createdAt": req.CreatedAt,
+		"waitTime":  time.Since(req.CreatedAt).Seconds(),
+	}).WithDuration(start).Info("content cache invalidated")
+
+	// notify observer
+	c.observer.Notify(InvalidationResponse{
+		Item:     item,
+		Duration: time.Since(start),
+	})
+
 	return
 }
 

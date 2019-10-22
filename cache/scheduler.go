@@ -30,7 +30,7 @@ func (c *Cache) scheduleInvalidation() {
 			if errInvalidation := c.cacheNeosContentServerExport(); errInvalidation != nil {
 
 				if errInvalidation == ErrorNoNewExort {
-					log.WithDuration(requestTime).Info("cache invalidation request processed - but export hash matches old one")
+					log.WithDuration(requestTime).Info("contentserver export cache invalidation request processed - but export hash matches old one")
 					continue
 				}
 
@@ -40,7 +40,7 @@ func (c *Cache) scheduleInvalidation() {
 
 			// @todo: notify observers
 
-			log.WithDuration(requestTime).Info("cache invalidation request processed")
+			log.WithDuration(requestTime).Info("contentserver export cache invalidation request processed")
 		}
 	}
 

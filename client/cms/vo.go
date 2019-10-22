@@ -16,6 +16,7 @@ type Client struct {
 
 // Content returned on getContent
 type Content struct {
-	HTML       string `json:"html"`
-	ValidUntil int64  `json:"validUntil"`
+	HTML              string   `json:"html"`
+	ValidUntil        int64    `json:"validUntil"`
+	CacheDependencies []string `json:"cacheDependencies"`
 }

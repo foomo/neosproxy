@@ -96,6 +96,44 @@ func (f *fsCacheStore) Upsert(item store.CacheItem) (e error) {
 	return nil
 }
 
+func (f *fsCacheStore) GetAllCacheDependencies() ([]store.CacheDependencies, error) {
+	start := time.Now()
+	l := f.l.WithField(logging.FieldFunction, "GetAllCacheDependencies")
+	files, errReadDir := ioutil.ReadDir(f.CacheDir)
+	if errReadDir != nil {
+		l.WithError(errReadDir).Error("failed reading cache dir")
+		return nil, errReadDir
+	}
+
+	dependencies := []store.CacheDependencies{}
+
+	counter := 0
+	for _, file := range files {
+		if !file.IsDir() {
+			filename := file.Name()
+			index := strings.Index(filename, ".")
+			if index >= 0 {
+				filename = filename[0:index]
+			}
+			item, errGet := f.Get(filename)
+			if errGet != nil {
+				l.WithError(errGet).Warn("could not load cache item")
+				continue
+			}
+			counter++
+			dependencies = append(dependencies, store.CacheDependencies{
+				ID:           item.ID,
+				Dimension:    item.Dimension,
+				Workspace:    item.Workspace,
+				Dependencies: item.Dependencies,
+			})
+		}
+	}
+	l.WithField("len", counter).WithDuration(start).Debug("all cache dependencies loaded")
+
+	return dependencies, nil
+}
+
 func (f *fsCacheStore) GetAllEtags(workspace string) (etags map[string]string) {
 	f.lockEtags.RLock()
 	etags = make(map[string]string)

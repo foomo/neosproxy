@@ -18,10 +18,10 @@ func (c *Cache) Invalidate() bool {
 
 	select {
 	case c.invalidationChannel <- time.Now():
-		log.Info("invalidation request added to queue")
+		log.Info("contentserver export invalidation request added to queue")
 		return true
 	default:
-		log.Info("invalidation request ignored, queue seems to be full")
+		log.Info("contentserver export invalidation request ignored, queue seems to be full")
 		return false
 	}
 
