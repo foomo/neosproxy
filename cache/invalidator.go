@@ -5,9 +5,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/cloudfoundry/bytefmt"
 	"github.com/foomo/neosproxy/logging"
+	"github.com/sirupsen/logrus"
 )
 
 // Invalidate cache maybe invalidates cache, but skips requests if invalidation queue is already full
@@ -18,10 +18,10 @@ func (c *Cache) Invalidate() bool {
 
 	select {
 	case c.invalidationChannel <- time.Now():
-		log.Info("invalidation request added to queue")
+		log.Info("contentserver export invalidation request added to queue")
 		return true
 	default:
-		log.Info("invalidation request ignored, queue seems to be full")
+		log.Info("contentserver export invalidation request ignored, queue seems to be full")
 		return false
 	}
 

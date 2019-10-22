@@ -20,7 +20,9 @@ func TestCache(t *testing.T) {
 	assert.NoError(t, countErr)
 	assert.Equal(t, 0, count)
 
-	item := store.NewCacheItem(id, dimension, workspace, "<h1>Test</h1>", validUntil)
+	dependencies := []string{"foo", "bar"}
+
+	item := store.NewCacheItem(id, dimension, workspace, "<h1>Test</h1>", dependencies, validUntil)
 	hash := item.Hash
 	errUpsert := s.Upsert(item)
 	assert.NoError(t, errUpsert)
@@ -36,6 +38,8 @@ func TestCache(t *testing.T) {
 	itemCached, errGet := s.Get(hash)
 	assert.NoError(t, errGet)
 	assert.NotNil(t, itemCached)
+
+	assert.Equal(t, 2, len(itemCached.Dependencies))
 
 	errRemoveAll := s.RemoveAll()
 	assert.NoError(t, errRemoveAll)

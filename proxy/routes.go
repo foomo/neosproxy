@@ -16,12 +16,25 @@ const routeContentServerExport = "/contentserver/export"
 func (p *Proxy) setupRoutes() {
 
 	// hijack content server export routes
+
+	// content tree / sitemap
 	p.router.HandleFunc(routeContentServerExport, p.streamCachedNeosContentServerExport)
 	p.router.HandleFunc(routeContentServerExport, p.streamCachedNeosContentServerExport).Queries("workspace", "{workspace}")
 
-	// /contentserver/export/de/571fd1ae-c8e4-4d91-a708-d97025fb015c?workspace=stage
-	p.router.HandleFunc(routeContentServerExport+"/{dimension}/{id}", p.getContent)
-	p.router.HandleFunc(routeContentServerExport+"/{dimension}/{id}", p.getContent).Queries("workspace", "{workspace}")
+	// etag
+	p.router.HandleFunc(routeContentServerExport+"/etag/{dimension}/{id}", p.getEtagByID).Methods(http.MethodGet)
+	p.router.HandleFunc(routeContentServerExport+"/etag/{dimension}/{id}", p.getEtagByID).Methods(http.MethodGet).Queries("workspace", "{workspace}")
+	p.router.HandleFunc(routeContentServerExport+"/etag/{hash}", p.getEtagByHash).Methods(http.MethodGet)
+
+	p.router.HandleFunc(routeContentServerExport+"/etags", p.getAllEtags).Methods(http.MethodGet)
+	p.router.HandleFunc(routeContentServerExport+"/etags", p.getAllEtags).Methods(http.MethodGet).Queries("workspace", "{workspace}")
+
+	// documents => /contentserver/export/de/571fd1ae-c8e4-4d91-a708-d97025fb015c?workspace=stage
+	p.router.HandleFunc(routeContentServerExport+"/{dimension}/{id}", p.getContent).Methods(http.MethodGet)
+	p.router.HandleFunc(routeContentServerExport+"/{dimension}/{id}", p.getContent).Methods(http.MethodGet).Queries("workspace", "{workspace}")
+
+	p.router.HandleFunc(routeContentServerExport+"/{dimension}/{id}", p.getEtagByID).Methods(http.MethodHead)
+	p.router.HandleFunc(routeContentServerExport+"/{dimension}/{id}", p.getEtagByID).Methods(http.MethodHead).Queries("workspace", "{workspace}")
 
 	// api
 	// neosproxy/cache/%s?workspace=%s

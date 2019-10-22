@@ -1,15 +1,12 @@
 # -----------------------------------------------------------------------------
 # Builder Base
 # -----------------------------------------------------------------------------
-FROM golang:alpine as base
+FROM golang:1.13-alpine as base
 
-RUN apk add --no-cache git glide upx \
+RUN apk add --no-cache git upx \
   && rm -rf /var/cache/apk/*
 
 WORKDIR /go/src/github.com/foomo/neosproxy
-
-COPY glide.yaml glide.lock ./
-RUN glide install
 
 
 
@@ -21,7 +18,7 @@ FROM base as builder
 COPY . ./
 
 # Build the binary
-RUN glide install
+RUN go mod vendor
 RUN CGO_ENABLED=0 go build -o /go/bin/neosproxy cmd/neosproxy/main.go
 
 # Compress the binary

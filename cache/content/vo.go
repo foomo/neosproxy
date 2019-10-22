@@ -1,28 +1,41 @@
 package content
 
 import (
+	"container/list"
 	"time"
 
 	"github.com/foomo/neosproxy/cache/content/store"
 	"github.com/foomo/neosproxy/client/cms"
+	"github.com/foomo/neosproxy/logging"
+	"golang.org/x/sync/singleflight"
 )
 
 // Cache workspace items
 type Cache struct {
-	observer            Observer
-	loader              cms.ContentLoader
-	store               store.CacheStore
-	invalidationChannel chan InvalidationRequest
+	observer Observer
+	loader   cms.ContentLoader
+	store    store.CacheStore
 
-	lifetime time.Duration // time until an item must be re-invalidated (< 0 === never)
+	invalidationRequestGroup *singleflight.Group
+	invalidationChannel      chan InvalidationRequest
+	invalidationRetryChannel chan InvalidationRequest
+	retryQueue               *list.List
+
+	cacheDependencies *cacheDependencies
+	lifetime          time.Duration // time until an item must be re-invalidated (< 0 === never)
+
+	log logging.Entry
 }
 
 // InvalidationRequest request VO
 type InvalidationRequest struct {
-	CreatedAt time.Time
 	ID        string
 	Dimension string
 	Workspace string
+
+	CreatedAt        time.Time
+	LastExecutedAt   time.Time
+	ExecutionCounter int
 }
 
 // InvalidationResponse response VO
