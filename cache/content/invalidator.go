@@ -17,11 +17,6 @@ func (c *Cache) RemoveAll() (err error) {
 // Invalidate creates an invalidation job and adds it to the queue
 // serveral workers will take care of job execution
 func (c *Cache) Invalidate(id, dimension, workspace string) {
-	c.log.WithFields(logrus.Fields{
-		"id":        id,
-		"dimension": dimension,
-		"workspace": workspace,
-	}).Info("content cache invalidation request added to queue")
 	req := InvalidationRequest{
 		CreatedAt:        time.Now(),
 		ID:               id,
@@ -30,14 +25,21 @@ func (c *Cache) Invalidate(id, dimension, workspace string) {
 		ExecutionCounter: 0,
 	}
 
+	logger := c.log.WithFields(logrus.Fields{
+		"id":        id,
+		"dimension": dimension,
+		"workspace": workspace,
+	})
+
 	select {
 	case c.invalidationChannel <- req:
+		logger.Info("content cache invalidation request added to invalidation queue")
 		return
 	default:
+		logger.Info("content cache invalidation request added to retry queue")
 		c.retry(req)
 		return
 	}
-
 }
 
 // Load will immediately load content from NEOS and persist it as a cache item
