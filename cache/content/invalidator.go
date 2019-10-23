@@ -29,7 +29,15 @@ func (c *Cache) Invalidate(id, dimension, workspace string) {
 		Workspace:        workspace,
 		ExecutionCounter: 0,
 	}
-	c.invalidationChannel <- req
+
+	select {
+	case c.invalidationChannel <- req:
+		return
+	default:
+		c.retry(req)
+		return
+	}
+
 }
 
 // Load will immediately load content from NEOS and persist it as a cache item

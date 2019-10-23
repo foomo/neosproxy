@@ -117,9 +117,13 @@ func (c *Cache) invalidationWorker(id int) {
 		}
 
 		// retry
-		job.LastExecutedAt = time.Now()
-		job.ExecutionCounter++
-		c.invalidationRetryChannel <- job
+		c.retry(job)
 		l.Warn("content cache invalidation failed, retry job added to queue")
 	}
+}
+
+func (c *Cache) retry(job InvalidationRequest) {
+	job.LastExecutedAt = time.Now()
+	job.ExecutionCounter++
+	c.invalidationRetryChannel <- job
 }

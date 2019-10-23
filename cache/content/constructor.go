@@ -20,7 +20,7 @@ func New(cacheLifetime time.Duration, store store.CacheStore, loader cms.Content
 		cacheDependencies: NewCacheDependencies(),
 
 		invalidationRequestGroup: &singleflight.Group{},
-		invalidationChannel:      make(chan InvalidationRequest),
+		invalidationChannel:      make(chan InvalidationRequest, 10000),
 		invalidationRetryChannel: make(chan InvalidationRequest),
 		retryQueue:               &list.List{},
 		lifetime:                 cacheLifetime,
@@ -41,7 +41,7 @@ func New(cacheLifetime time.Duration, store store.CacheStore, loader cms.Content
 	}
 
 	// initialize invalidation workers
-	for w := 1; w <= 10; w++ {
+	for w := 1; w <= 15; w++ {
 		go c.invalidationWorker(w)
 	}
 
