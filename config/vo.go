@@ -17,8 +17,9 @@ type ObserverInterface interface {
 // Config struct definition
 type Config struct {
 	Proxy struct {
-		Address string
-		Token   string
+		Address  string
+		Token    string
+		BasePath string
 	}
 	Neos          Neos
 	Cache         Cache
@@ -77,8 +78,9 @@ type ObserverWebhook struct {
 
 type configFile struct {
 	Proxy struct {
-		Address string
-		Token   string
+		Address  string
+		Token    string
+		BasePath string
 	}
 	Neos struct {
 		URL        string `json:"url" yaml:"url"`

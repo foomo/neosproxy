@@ -4,7 +4,7 @@ import (
 	"crypto/subtle"
 	"net/http"
 
-	"github.com/auth0/go-jwt-middleware"
+	jwtmiddleware "github.com/auth0/go-jwt-middleware"
 	"github.com/foomo/neosproxy/logging"
 )
 
@@ -14,7 +14,8 @@ import (
 
 // Run a proxy
 func (p *Proxy) Run() error {
-	return http.ListenAndServe(p.config.Proxy.Address, p.router)
+	handler := http.StripPrefix(p.config.Proxy.BasePath, p.router)
+	return http.ListenAndServe(p.config.Proxy.Address, handler)
 }
 
 //-----------------------------------------------------------------------------

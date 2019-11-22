@@ -5,12 +5,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/foomo/neosproxy/cache/content/store/fs"
 	"github.com/foomo/neosproxy/client/cms"
 	"github.com/foomo/neosproxy/config"
 	"github.com/foomo/neosproxy/logging"
 	"github.com/foomo/neosproxy/proxy"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
