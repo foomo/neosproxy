@@ -79,6 +79,7 @@ func main() {
 		logging.FieldAddr: config.Proxy.Address,
 		"neos":            config.Neos.URL,
 		"cache":           config.Cache.Directory,
+		"basepath":        config.Proxy.BasePath,
 	}).Info("run proxy server")
 
 	// run proxy
