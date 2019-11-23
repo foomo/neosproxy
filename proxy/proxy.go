@@ -14,8 +14,7 @@ import (
 
 // Run a proxy
 func (p *Proxy) Run() error {
-	handler := http.StripPrefix(p.config.Proxy.BasePath, p.router)
-	return http.ListenAndServe(p.config.Proxy.Address, handler)
+	return http.ListenAndServe(p.config.Proxy.Address, p.router)
 }
 
 //-----------------------------------------------------------------------------
@@ -43,20 +42,6 @@ func (p *Proxy) methodNotAllowed(w http.ResponseWriter, r *http.Request) {
 //-----------------------------------------------------------------------------
 // ~ Middleware
 //-----------------------------------------------------------------------------
-
-func (p *Proxy) middlewareServiceUnavailable(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		// service unavailable
-		if p.maintenance {
-			p.serviceNotAvailable(w, r)
-			return
-		}
-
-		// call next handler
-		next.ServeHTTP(w, r)
-	})
-}
 
 func (p *Proxy) setupLogger(r *http.Request, method string) logging.Entry {
 	return p.log.WithField(logging.FieldURI, r.RequestURI).WithField(logging.FieldFunction, method)

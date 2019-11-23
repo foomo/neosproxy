@@ -16,7 +16,6 @@ import (
 // Proxy struct definition
 type Proxy struct {
 	log             logging.Entry
-	maintenance     bool
 	basicAuth       []basicAuth
 	config          *config.Config
 	workspaceCaches map[string]*cache.Cache
