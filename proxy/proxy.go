@@ -3,6 +3,7 @@ package proxy
 import (
 	"crypto/subtle"
 	"net/http"
+	"strings"
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware"
 	"github.com/foomo/neosproxy/logging"
@@ -14,7 +15,17 @@ import (
 
 // Run a proxy
 func (p *Proxy) Run() error {
-	return http.ListenAndServe(p.config.Proxy.Address, p.router)
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// strip prefix
+		r.URL.Path = strings.TrimPrefix(r.URL.Path, p.config.Proxy.BasePath)
+		r.RequestURI = strings.TrimPrefix(r.RequestURI, p.config.Proxy.BasePath)
+
+		// default router
+		p.router.ServeHTTP(w, r)
+	})
+
+	return http.ListenAndServe(p.config.Proxy.Address, nil)
 }
 
 //-----------------------------------------------------------------------------

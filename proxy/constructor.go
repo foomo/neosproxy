@@ -36,15 +36,17 @@ func New(cfg *config.Config, contentLoader cms.ContentLoader, contentStore store
 	}
 
 	reverseProxy.Director = func(req *http.Request) {
-		// proxy headers
-		req.Header.Add("X-Forwarded-Host", req.Host)
-		req.Header.Add("X-Origin-Host", cfg.Neos.URL.Host)
+		// reset and rewrite request headers
+		headers := http.Header{}
+		headers.Set("X-Forwarded-Host", req.Host)
+		headers.Set("X-Origin-Host", cfg.Neos.URL.Host)
+		req.Header = headers
 		req.URL.Scheme = cfg.Neos.URL.Scheme
 		req.URL.Host = cfg.Neos.URL.Host
 		req.Host = cfg.Neos.URL.Host
 
 		// strip prefix
-		reqURI := strings.TrimPrefix(req.RequestURI, cfg.Proxy.BasePath)
+		reqURI := strings.TrimPrefix(req.URL.Path, cfg.Proxy.BasePath)
 		proxyPath := singleJoiningSlash(cfg.Neos.URL.Path, reqURI)
 		if strings.HasSuffix(proxyPath, "/") && len(proxyPath) > 1 {
 			proxyPath = proxyPath[:len(proxyPath)-1]
