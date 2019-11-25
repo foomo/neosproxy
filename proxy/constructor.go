@@ -1,7 +1,9 @@
 package proxy
 
 import (
+	"net/http"
 	"net/http/httputil"
+	"strings"
 	"time"
 
 	"github.com/foomo/neosproxy/cache"
@@ -19,14 +21,46 @@ import (
 // New proxy
 func New(cfg *config.Config, contentLoader cms.ContentLoader, contentStore store.CacheStore, cacheLifetime time.Duration) *Proxy {
 
+	reverseProxy := httputil.NewSingleHostReverseProxy(cfg.Neos.URL)
+
+	singleJoiningSlash := func(a, b string) string {
+		aslash := strings.HasSuffix(a, "/")
+		bslash := strings.HasPrefix(b, "/")
+		switch {
+		case aslash && bslash:
+			return a + b[1:]
+		case !aslash && !bslash:
+			return a + "/" + b
+		}
+		return a + b
+	}
+
+	reverseProxy.Director = func(req *http.Request) {
+		// reset and rewrite request headers
+		headers := http.Header{}
+		headers.Set("X-Forwarded-Host", req.Host)
+		headers.Set("X-Origin-Host", cfg.Neos.URL.Host)
+		req.Header = headers
+		req.URL.Scheme = cfg.Neos.URL.Scheme
+		req.URL.Host = cfg.Neos.URL.Host
+		req.Host = cfg.Neos.URL.Host
+
+		// strip prefix
+		reqURI := strings.TrimPrefix(req.URL.Path, cfg.Proxy.BasePath)
+		proxyPath := singleJoiningSlash(cfg.Neos.URL.Path, reqURI)
+		if strings.HasSuffix(proxyPath, "/") && len(proxyPath) > 1 {
+			proxyPath = proxyPath[:len(proxyPath)-1]
+		}
+		req.URL.Path = proxyPath
+	}
+
 	p := &Proxy{
 		log:             logging.GetDefaultLogEntry(),
-		maintenance:     false,
 		config:          cfg,
 		workspaceCaches: make(map[string]*cache.Cache, len(cfg.Neos.Workspaces)),
 
 		router:       mux.NewRouter(),
-		proxyHandler: httputil.NewSingleHostReverseProxy(cfg.Neos.URL),
+		proxyHandler: reverseProxy,
 
 		status: &model.Status{
 			Workspaces:      cfg.Neos.Workspaces,

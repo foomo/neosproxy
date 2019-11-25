@@ -44,9 +44,6 @@ func (p *Proxy) setupRoutes() {
 	neosproxyRouter.HandleFunc("/cache/{id}", p.invalidateCache).Methods(http.MethodDelete).Queries("workspace", "{workspace}").Name("api-delete-cache")
 	neosproxyRouter.HandleFunc("/status", p.streamStatus).Methods(http.MethodGet)
 
-	// middlewares
-	p.router.Use(p.middlewareServiceUnavailable)
-
 	// error handling
 	p.router.NotFoundHandler = http.HandlerFunc(p.notFound)
 	p.router.MethodNotAllowedHandler = http.HandlerFunc(p.methodNotAllowed)
