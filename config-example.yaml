@@ -1,6 +1,7 @@
 proxy:
   address: "127.0.0.1:8000"
   token: "advbfsb-adfgsgsg-4435sgs-afgsgdfg"
+  basepath: "/neosproxy"
 
 neos:
   url: "http://cms/"
