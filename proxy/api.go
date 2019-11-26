@@ -109,6 +109,19 @@ func (p *Proxy) getContent(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// purgeCache will invalidate all cached contentserver export files
+func (p *Proxy) purgeCache(w http.ResponseWriter, r *http.Request) {
+	log := p.setupLogger(r, "purgeCache")
+	if err := p.contentCache.RemoveAll(); err != nil {
+		log.WithError(err).Error("content cache remove all failure")
+		http.Error(
+			w,
+			http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError,
+		)
+	}
+}
+
 // invalidateCache will invalidate cached contentserver export file
 func (p *Proxy) invalidateCache(w http.ResponseWriter, r *http.Request) {
 
