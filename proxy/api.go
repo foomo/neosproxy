@@ -131,7 +131,7 @@ func (p *Proxy) invalidateCacheAll(w http.ResponseWriter, r *http.Request) {
 
 	cachedItems, err := p.contentCache.GetAll()
 	if err != nil {
-		log.WithError(err).Error("")
+		log.WithError(err).Error("couldn't get all cache items")
 		http.Error(
 			w,
 			http.StatusText(http.StatusInternalServerError),
@@ -145,21 +145,6 @@ func (p *Proxy) invalidateCacheAll(w http.ResponseWriter, r *http.Request) {
 
 	for _, ci := range cachedItems {
 		p.contentCache.Invalidate(ci.ID, ci.Dimension, ci.Workspace)
-
-		// load workspace worker
-		workspaceCache, workspaceOK := p.workspaceCaches[ci.Workspace]
-		if !workspaceOK {
-			log.Warn("unknown workspace")
-			http.Error(
-				w,
-				"cache invalidation failed: unknown workspace",
-				http.StatusBadRequest,
-			)
-			return
-		}
-
-		// add invalidation request to queue (contentserver export)
-		workspaceCache.Invalidate()
 	}
 
 	w.WriteHeader(http.StatusAccepted)
