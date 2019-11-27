@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -148,12 +147,9 @@ func (p *Proxy) invalidateCacheAll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusAccepted)
-	msg := fmt.Sprintf(
-		"%d cache invalidation requests accepted",
-		len(cachedItems),
-	)
-	w.Write([]byte(msg))
-	log.Debug(msg)
+	log.
+		WithField("numInvalidationRequests", len(cachedItems)).
+		Debug("cache invalidation requests accepted")
 }
 
 // invalidateCache will invalidate cached contentserver export file
