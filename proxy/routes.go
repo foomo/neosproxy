@@ -40,6 +40,7 @@ func (p *Proxy) setupRoutes() {
 	// neosproxy/cache/%s?workspace=%s
 	neosproxyRouter := p.router.PathPrefix(neosproxyPath).Subrouter()
 	neosproxyRouter.Use(p.middlewareTokenAuth)
+	neosproxyRouter.HandleFunc("/cache/all", p.invalidateCacheAll).Methods(http.MethodDelete)
 	neosproxyRouter.HandleFunc("/cache/{id}", p.invalidateCache).Methods(http.MethodDelete)
 	neosproxyRouter.HandleFunc("/cache/{id}", p.invalidateCache).Methods(http.MethodDelete).Queries("workspace", "{workspace}").Name("api-delete-cache")
 	neosproxyRouter.HandleFunc("/status", p.streamStatus).Methods(http.MethodGet)

@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -107,6 +108,67 @@ func (p *Proxy) getContent(w http.ResponseWriter, r *http.Request) {
 	// log.WithDuration(start).Debug("content served")
 	p.servedStatsChan <- true
 	return
+}
+
+// invalidateCache will invalidate all cached contentserver export files
+func (p *Proxy) invalidateCacheAll(w http.ResponseWriter, r *http.Request) {
+	// extract request data
+	workspace := strings.TrimSpace(
+		strings.ToLower(r.URL.Query().Get("workspace")),
+	)
+	user := r.Header.Get("X-User")
+
+	// validate workspace
+	if workspace == "" {
+		workspace = cms.WorkspaceLive
+	}
+
+	// logger
+	log := p.setupLogger(r, "invalidateCacheAll").WithFields(logrus.Fields{
+		logging.FieldWorkspace: workspace,
+		"user":                 user,
+	})
+
+	cachedItems, err := p.contentCache.GetAll()
+	if err != nil {
+		log.WithError(err).Error("")
+		http.Error(
+			w,
+			http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError,
+		)
+	}
+
+	if len(p.config.Neos.Dimensions) == 0 {
+		log.Warn("no neos dimension configured")
+	}
+
+	for _, ci := range cachedItems {
+		p.contentCache.Invalidate(ci.ID, ci.Dimension, ci.Workspace)
+
+		// load workspace worker
+		workspaceCache, workspaceOK := p.workspaceCaches[ci.Workspace]
+		if !workspaceOK {
+			log.Warn("unknown workspace")
+			http.Error(
+				w,
+				"cache invalidation failed: unknown workspace",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		// add invalidation request to queue (contentserver export)
+		workspaceCache.Invalidate()
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+	msg := fmt.Sprintf(
+		"%d cache invalidation requests accepted",
+		len(cachedItems),
+	)
+	w.Write([]byte(msg))
+	log.Debug(msg)
 }
 
 // invalidateCache will invalidate cached contentserver export file
