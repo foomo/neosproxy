@@ -27,6 +27,11 @@ func (c *Cache) Len() int {
 	return counter
 }
 
+// GetAll returns all cached items
+func (c *Cache) GetAll() ([]store.CacheItem, error) {
+	return c.store.GetAll()
+}
+
 func (c *Cache) GetAllEtags(workspace string) (etags map[string]string) {
 	return c.store.GetAllEtags(workspace)
 }

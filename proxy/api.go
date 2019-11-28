@@ -109,6 +109,49 @@ func (p *Proxy) getContent(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// invalidateCache will invalidate all cached contentserver export files
+func (p *Proxy) invalidateCacheAll(w http.ResponseWriter, r *http.Request) {
+	// extract request data
+	workspace := strings.TrimSpace(
+		strings.ToLower(r.URL.Query().Get("workspace")),
+	)
+	user := r.Header.Get("X-User")
+
+	// validate workspace
+	if workspace == "" {
+		workspace = cms.WorkspaceLive
+	}
+
+	// logger
+	log := p.setupLogger(r, "invalidateCacheAll").WithFields(logrus.Fields{
+		logging.FieldWorkspace: workspace,
+		"user":                 user,
+	})
+
+	cachedItems, err := p.contentCache.GetAll()
+	if err != nil {
+		log.WithError(err).Error("couldn't get all cache items")
+		http.Error(
+			w,
+			http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError,
+		)
+	}
+
+	if len(p.config.Neos.Dimensions) == 0 {
+		log.Warn("no neos dimension configured")
+	}
+
+	for _, ci := range cachedItems {
+		p.contentCache.Invalidate(ci.ID, ci.Dimension, ci.Workspace)
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+	log.
+		WithField("numInvalidationRequests", len(cachedItems)).
+		Debug("cache invalidation requests accepted")
+}
+
 // invalidateCache will invalidate cached contentserver export file
 func (p *Proxy) invalidateCache(w http.ResponseWriter, r *http.Request) {
 
