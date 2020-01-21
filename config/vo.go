@@ -23,8 +23,8 @@ type Config struct {
 	}
 	Neos          Neos
 	Cache         Cache
-	Observer      []*Observer `json:"-" yaml:"observer"` // *Observer
-	Subscriptions map[string][]string
+	Observers     []*Observer `json:"-" yaml:"observer"` // *Observer
+	Subscriptions []string
 }
 
 // Cache config struct
@@ -36,7 +36,7 @@ type Cache struct {
 // Neos config struct
 type Neos struct {
 	URL        *url.URL
-	Workspaces []string
+	Workspace  string
 	Dimensions []string
 }
 
@@ -84,15 +84,15 @@ type configFile struct {
 	}
 	Neos struct {
 		URL        string `json:"url" yaml:"url"`
-		Workspaces []string
+		Workspace  string
 		Dimensions []string
 	}
 	Cache struct {
 		AutoUpdateDuration string `json:"autoUpdateDuration" yaml:"autoUpdateDuration"`
 		Directory          string
 	}
-	Observer      []configFileObserver `json:"-" yaml:"observer"`
-	Subscriptions map[string][]string
+	Observers     []configFileObserver `json:"-" yaml:"observers"`
+	Subscriptions []string
 }
 
 type configFileObserver struct {

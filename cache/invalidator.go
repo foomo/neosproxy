@@ -14,7 +14,7 @@ import (
 func (c *Cache) Invalidate() bool {
 
 	// logger
-	log := logging.GetDefaultLogEntry().WithField(logging.FieldWorkspace, c.Workspace)
+	log := logging.GetDefaultLogEntry()
 
 	select {
 	case c.invalidationChannel <- time.Now():
@@ -33,11 +33,11 @@ func (c *Cache) cacheNeosContentServerExport() error {
 	start := time.Now()
 
 	// logger
-	log := logging.GetDefaultLogEntry().WithField(logging.FieldWorkspace, c.Workspace)
+	log := logging.GetDefaultLogEntry().WithField(logging.FieldWorkspace, c.neos.Workspace)
 
 	// download new export
 	downloadFilename := c.file + ".download"
-	neosContentServerExportURL := c.neos.URL.String() + "/contentserver/export?workspace=" + c.Workspace
+	neosContentServerExportURL := c.neos.URL.String() + "/contentserver/export?workspace=" + c.neos.Workspace
 	if err := downloadNeosContentServerExport(downloadFilename, neosContentServerExportURL); err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (c *Cache) cacheNeosContentServerExport() error {
 	}
 
 	// notify broker
-	c.broker.NotifyOnSitemapChange(c.Workspace) // user ???
+	c.broker.NotifyOnSitemapChange() // user ???
 
 	log.WithDuration(start).WithField("size", bytefmt.ByteSize(uint64(fileInfo.Size()))).Debug("cached a new contentserver export")
 	return nil

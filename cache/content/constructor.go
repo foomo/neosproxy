@@ -11,11 +11,12 @@ import (
 )
 
 // New will return a newly created content cache
-func New(cacheLifetime time.Duration, store store.CacheStore, loader cms.ContentLoader, observer Observer, log logging.Entry) *Cache {
+func New(cacheLifetime time.Duration, store store.CacheStore, loader cms.ContentLoader, observer Observer, workspace string, log logging.Entry) *Cache {
 	c := &Cache{
-		observer: observer,
-		loader:   loader,
-		store:    store,
+		observer:  observer,
+		loader:    loader,
+		store:     store,
+		workspace: workspace,
 
 		cacheDependencies: NewCacheDependencies(),
 
@@ -36,7 +37,7 @@ func New(cacheLifetime time.Duration, store store.CacheStore, loader cms.Content
 	// update cache dependencies
 	for _, obj := range cacheDependencies {
 		for _, targetID := range obj.Dependencies {
-			c.cacheDependencies.Set(obj.ID, targetID, obj.Dimension, obj.Workspace)
+			c.cacheDependencies.Set(obj.ID, targetID, obj.Dimension)
 		}
 	}
 

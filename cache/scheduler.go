@@ -11,7 +11,7 @@ func (c *Cache) scheduleInvalidation() {
 	skipped := 0
 
 	// logger
-	log := logging.GetDefaultLogEntry().WithField(logging.FieldWorkspace, c.Workspace)
+	log := logging.GetDefaultLogEntry()
 
 	for {
 

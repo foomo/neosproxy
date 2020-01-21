@@ -55,49 +55,31 @@ func New(cfg *config.Config, contentLoader cms.ContentLoader, contentStore store
 	}
 
 	p := &Proxy{
-		log:             logging.GetDefaultLogEntry(),
-		config:          cfg,
-		workspaceCaches: make(map[string]*cache.Cache, len(cfg.Neos.Workspaces)),
+		log:    logging.GetDefaultLogEntry(),
+		config: cfg,
 
 		router:       mux.NewRouter(),
 		proxyHandler: reverseProxy,
 
 		status: &model.Status{
-			Workspaces:      cfg.Neos.Workspaces,
+			Workspace:       cfg.Neos.Workspace,
 			ProviderReports: map[string]model.Report{},
 			ConsumerReports: map[string]model.Report{},
 		},
-		broker:             notifier.NewBroker(),
-		servedStatsChan:    make(chan bool),
-		servedStatsCounter: uint(0),
+		broker: notifier.NewBroker(),
 	}
-
-	go func() {
-		tick := time.Tick(time.Minute * 1)
-		for {
-			select {
-			case <-tick:
-				p.log.WithField("requests", p.servedStatsCounter).Info("requests served in the last 60 seconds")
-				p.servedStatsCounter = uint(0)
-			case <-p.servedStatsChan:
-				p.servedStatsCounter++
-			}
-		}
-	}()
 
 	// content cache for html from neos
-	p.contentCache = content_cache.New(cacheLifetime, contentStore, contentLoader, p.broker, p.log)
+	p.contentCache = content_cache.New(cacheLifetime, contentStore, contentLoader, p.broker, cfg.Neos.Workspace, p.log)
 
 	// sitemap / site structure cache for content servers
-	for _, workspace := range cfg.Neos.Workspaces {
-		p.workspaceCaches[workspace] = cache.New(p.broker, workspace, cfg)
-	}
+	p.sitemapCache = cache.New(p.broker, cfg)
 
 	// setup routes
 	p.setupRoutes()
 
 	// append oberservers
-	for _, observer := range cfg.Observer {
+	for _, observer := range cfg.Observers {
 		if observer.Webhook == nil {
 			continue
 		}
@@ -107,12 +89,10 @@ func New(cfg *config.Config, contentLoader cms.ContentLoader, contentStore store
 
 		n := notifier.NewContentServerNotifier(observer.Webhook.Name, observer.Webhook.URL, observer.Webhook.Token, observer.Webhook.VerifyTLS)
 
-		for workspace, subscribers := range cfg.Subscriptions {
-			for _, subscriber := range subscribers {
-				if subscriber == n.GetName() {
-					p.broker.RegisterSitemapObserver(workspace, n)
-					l.WithField("workspace", workspace).Debug("notifier/observer registered at workspace")
-				}
+		for _, subscription := range cfg.Subscriptions {
+			if subscription == n.GetName() {
+				p.broker.RegisterSitemapObserver(n)
+				l.Debug("notifier/observer registered")
 			}
 		}
 

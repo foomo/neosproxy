@@ -47,19 +47,13 @@ func Load(filename string) (config *Config, err error) {
 	config = &Config{
 		Proxy:         conf.Proxy,
 		Cache:         conf.Cache,
-		Subscriptions: make(map[string][]string, len(conf.Subscriptions)),
-		Observer:      []*Observer{},
+		Subscriptions: []string{},
+		Observers:     []*Observer{},
 	}
 	config.Neos.URL = neosURL
 
-	// workspaces
-	workspaceNames := map[string]bool{}
-	config.Neos.Workspaces = make([]string, len(conf.Neos.Workspaces))
-	for index, workspace := range conf.Neos.Workspaces {
-		workspace = strings.ToLower(workspace)
-		config.Neos.Workspaces[index] = workspace
-		workspaceNames[workspace] = true
-	}
+	// workspace
+	config.Neos.Workspace = conf.Neos.Workspace
 
 	// dimensions
 	dimensionNames := map[string]bool{}
@@ -70,9 +64,9 @@ func Load(filename string) (config *Config, err error) {
 		dimensionNames[dimension] = true
 	}
 
-	// observers
+	// consume and validate observers configuration
 	observerNames := map[string]bool{}
-	for _, cfgFileObserver := range conf.Observer {
+	for _, cfgFileObserver := range conf.Observers {
 
 		cfgFileObserver.Name = strings.ToLower(cfgFileObserver.Name)
 
@@ -99,28 +93,20 @@ func Load(filename string) (config *Config, err error) {
 		}
 
 		observerNames[cfgFileObserver.Name] = true
-		config.Observer = append(config.Observer, observer)
+		config.Observers = append(config.Observers, observer)
 	}
 
-	// subscriptions
-	for workspace, subscriptions := range conf.Subscriptions {
-		workspace = strings.ToLower(workspace)
-		if _, ok := workspaceNames[workspace]; !ok {
-			log.WithField(logging.FieldWorkspace, workspace).Warn("ignore subscriptions: workspace not defined")
+	// check if subscriptions match observers
+	observers := []string{}
+	for _, subscription := range conf.Subscriptions {
+		observer := subscription
+		if _, ok := observerNames[observer]; !ok {
+			log.WithField("observer", observer).Warn("ignore subscription: observer not defined")
 			continue
 		}
-
-		observers := []string{}
-		for _, observer := range subscriptions {
-			observer = strings.ToLower(observer)
-			if _, ok := observerNames[observer]; !ok {
-				log.WithField(logging.FieldWorkspace, workspace).WithField("observer", observer).Warn("ignore subscription: observer not defined")
-				continue
-			}
-			observers = append(observers, observer)
-		}
-		config.Subscriptions[workspace] = observers
+		observers = append(observers, observer)
 	}
+	config.Subscriptions = observers
 
 	return
 }

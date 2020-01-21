@@ -3,7 +3,7 @@ package content
 import "sync"
 
 //-----------------------------------------------------------------------------
-// ~ CACHE DEPENDENCIES for all dimensions in all workspaces
+// ~ CACHE DEPENDENCIES for all dimensions
 //-----------------------------------------------------------------------------
 
 type cacheDependencies struct {
@@ -16,20 +16,20 @@ func NewCacheDependencies() *cacheDependencies {
 	}
 }
 
-func (c *cacheDependencies) getHash(dimension, workspace string) string {
-	return workspace + "_" + dimension
+func (c *cacheDependencies) getHash(dimension string) string {
+	return dimension
 }
 
-func (c *cacheDependencies) Get(id, dimension, workspace string) []string {
-	hash := c.getHash(dimension, workspace)
+func (c *cacheDependencies) Get(id, dimension string) []string {
+	hash := c.getHash(dimension)
 	if cache, ok := c.dependencies[hash]; ok {
 		return cache.Get(id)
 	}
 	return nil
 }
 
-func (c *cacheDependencies) Set(sourceID, targetID, dimension, workspace string) {
-	hash := c.getHash(dimension, workspace)
+func (c *cacheDependencies) Set(sourceID, targetID, dimension string) {
+	hash := c.getHash(dimension)
 	if _, ok := c.dependencies[hash]; !ok {
 		c.dependencies[hash] = &cacheDependency{}
 	}
@@ -39,7 +39,7 @@ func (c *cacheDependencies) Set(sourceID, targetID, dimension, workspace string)
 }
 
 //-----------------------------------------------------------------------------
-// ~ CACHE DEPENDENCY for a dimension in a workspace
+// ~ CACHE DEPENDENCY for a dimension
 //-----------------------------------------------------------------------------
 
 type cacheDependency struct {

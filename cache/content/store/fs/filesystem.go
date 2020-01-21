@@ -124,7 +124,6 @@ func (f *fsCacheStore) GetAllCacheDependencies() ([]store.CacheDependencies, err
 			dependencies = append(dependencies, store.CacheDependencies{
 				ID:           item.ID,
 				Dimension:    item.Dimension,
-				Workspace:    item.Workspace,
 				Dependencies: item.Dependencies,
 			})
 		}
@@ -134,13 +133,10 @@ func (f *fsCacheStore) GetAllCacheDependencies() ([]store.CacheDependencies, err
 	return dependencies, nil
 }
 
-func (f *fsCacheStore) GetAllEtags(workspace string) (etags map[string]string) {
+func (f *fsCacheStore) GetAllEtags() (etags map[string]string) {
 	f.lockEtags.RLock()
 	etags = make(map[string]string)
 	for hash, etag := range f.etags {
-		if !strings.HasPrefix(hash, workspace) {
-			continue
-		}
 		etags[hash] = etag
 	}
 	f.lockEtags.RUnlock()

@@ -8,7 +8,7 @@ type CacheStore interface {
 	GetAll() (item []CacheItem, e error)
 
 	GetEtag(hash string) (etag string, e error)
-	GetAllEtags(workspace string) (etags map[string]string)
+	GetAllEtags() (etags map[string]string)
 
 	GetAllCacheDependencies() ([]CacheDependencies, error)
 

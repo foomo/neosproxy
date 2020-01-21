@@ -15,20 +15,18 @@ import (
 
 // Proxy struct definition
 type Proxy struct {
-	log             logging.Entry
-	basicAuth       []basicAuth
-	config          *config.Config
-	workspaceCaches map[string]*cache.Cache
+	log       logging.Entry
+	basicAuth []basicAuth
+	config    *config.Config
 
 	router       *mux.Router
 	proxyHandler *httputil.ReverseProxy
+
+	sitemapCache *cache.Cache
 	contentCache *content_cache.Cache
 
 	status *model.Status
 	broker *notifier.Broker
-
-	servedStatsChan    chan bool
-	servedStatsCounter uint // served requests per minute
 }
 
 type basicAuth struct {

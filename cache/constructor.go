@@ -12,7 +12,7 @@ import (
 )
 
 // New will return a newly created cache object
-func New(broker Broker, workspace string, cfg *config.Config) *Cache {
+func New(broker Broker, cfg *config.Config) *Cache {
 
 	cacheDir := filepath.Join(cfg.Cache.Directory, "cse")
 
@@ -21,11 +21,10 @@ func New(broker Broker, workspace string, cfg *config.Config) *Cache {
 	}
 
 	c := &Cache{
-		Workspace:           workspace,
 		invalidationChannel: make(chan time.Time, 1),
 
 		broker:   broker,
-		file:     fmt.Sprintf("%s/contentserver-export-%s.json", cacheDir, workspace),
+		file:     fmt.Sprintf("%s/contentserver-export.json", cacheDir),
 		FileLock: sync.RWMutex{},
 
 		neos:   cfg.Neos,

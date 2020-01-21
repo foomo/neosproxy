@@ -39,23 +39,14 @@ func (p *Proxy) getContent(w http.ResponseWriter, r *http.Request) {
 	// extract request data
 	id := getRequestParameter(r, "id")
 	dimension := getRequestParameter(r, "dimension")
-	workspace := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("workspace")))
-
-	// validate workspace
-	if workspace == "" {
-		workspace = cms.WorkspaceLive
-	}
 
 	// logger
-	log := p.setupLogger(r, "getContent").WithFields(logrus.Fields{
-		logging.FieldWorkspace: workspace,
-		logging.FieldID:        id,
-	})
+	log := p.setupLogger(r, "getContent").WithField(logging.FieldID, id)
 
 	// etag cache handling
 	headerEtag := r.Header.Get("ETag")
 	if headerEtag != "" {
-		etag, errEtag := p.contentCache.GetEtag(store.GetHash(id, dimension, workspace))
+		etag, errEtag := p.contentCache.GetEtag(store.GetHash(id, dimension))
 		if errEtag == nil && etag != "" && etag == headerEtag {
 			w.WriteHeader(http.StatusNotModified)
 			log.WithDuration(start).Debug("content not modified")
@@ -64,7 +55,7 @@ func (p *Proxy) getContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// try cache hit, invalidate in case of item not found
-	item, errCacheGet := p.contentCache.Get(id, dimension, workspace)
+	item, errCacheGet := p.contentCache.Get(id, dimension)
 	if errCacheGet != nil {
 
 		if errCacheGet != content_cache.ErrorNotFound {
@@ -75,7 +66,7 @@ func (p *Proxy) getContent(w http.ResponseWriter, r *http.Request) {
 
 		// invalidate content
 		startInvalidation := time.Now()
-		itemInvalidated, errCacheInvalidate := p.contentCache.Load(id, dimension, workspace)
+		itemInvalidated, errCacheInvalidate := p.contentCache.Load(id, dimension)
 		if errCacheInvalidate != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.WithError(errCacheInvalidate).Error("serving uncached item failed")
@@ -105,28 +96,16 @@ func (p *Proxy) getContent(w http.ResponseWriter, r *http.Request) {
 
 	// done
 	// log.WithDuration(start).Debug("content served")
-	p.servedStatsChan <- true
 	return
 }
 
 // invalidateCache will invalidate all cached contentserver export files
 func (p *Proxy) invalidateCacheAll(w http.ResponseWriter, r *http.Request) {
 	// extract request data
-	workspace := strings.TrimSpace(
-		strings.ToLower(r.URL.Query().Get("workspace")),
-	)
 	user := r.Header.Get("X-User")
 
-	// validate workspace
-	if workspace == "" {
-		workspace = cms.WorkspaceLive
-	}
-
 	// logger
-	log := p.setupLogger(r, "invalidateCacheAll").WithFields(logrus.Fields{
-		logging.FieldWorkspace: workspace,
-		"user":                 user,
-	})
+	log := p.setupLogger(r, "invalidateCacheAll").WithField("user", user)
 
 	cachedItems, err := p.contentCache.GetAll()
 	if err != nil {
@@ -143,7 +122,7 @@ func (p *Proxy) invalidateCacheAll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, ci := range cachedItems {
-		p.contentCache.Invalidate(ci.ID, ci.Dimension, ci.Workspace)
+		p.contentCache.Invalidate(ci.ID, ci.Dimension)
 	}
 
 	w.WriteHeader(http.StatusAccepted)
@@ -156,94 +135,51 @@ func (p *Proxy) invalidateCacheAll(w http.ResponseWriter, r *http.Request) {
 func (p *Proxy) invalidateCache(w http.ResponseWriter, r *http.Request) {
 
 	// extract request data
-	workspace := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("workspace")))
 	user := r.Header.Get("X-User")
 	id := getRequestParameter(r, "id")
 
-	// validate workspace
-	if workspace == "" {
-		workspace = cms.WorkspaceLive
-	}
-
 	// logger
 	log := p.setupLogger(r, "invalidateCache").WithFields(logrus.Fields{
-		logging.FieldWorkspace: workspace,
-		logging.FieldID:        id,
-		"user":                 user,
+		logging.FieldID: id,
+		"user":          user,
 	})
 	log.Debug("cache invalidation request")
-
-	// invalidate all workspaces in case of "live" workspace
-	workspaces := []string{workspace}
-	if workspace == cms.WorkspaceLive {
-		workspaces = []string{}
-		for workspace := range p.workspaceCaches {
-			workspaces = append(workspaces, workspace)
-		}
-	}
 
 	if len(p.config.Neos.Dimensions) == 0 {
 		log.Warn("no neos dimension configured")
 	}
 
-	for _, workspace := range workspaces {
-
-		for _, dimension := range p.config.Neos.Dimensions {
-			// add invalidation request / job / task
-			p.contentCache.Invalidate(id, dimension, workspace)
-		}
-
-		// load workspace worker
-		workspaceCache, workspaceOK := p.workspaceCaches[workspace]
-		if !workspaceOK {
-			log.Warn("unknown workspace")
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("cache invalidation failed: unknown workspace"))
-			return
-		}
-
-		// add invalidation request to queue (contentserver export)
-		workspaceCache.Invalidate()
+	for _, dimension := range p.config.Neos.Dimensions {
+		// add invalidation request / job / task
+		p.contentCache.Invalidate(id, dimension)
 	}
+
+	// add invalidation request to queue (contentserver export)
+	p.sitemapCache.Invalidate()
 
 	w.WriteHeader(http.StatusAccepted)
 	w.Write([]byte("cache invalidation request accepted"))
 	log.Debug("cache invalidation request accepted")
 }
 
-// streamCachedNeosContentServerExport will stream contentserver export
-func (p *Proxy) streamCachedNeosContentServerExport(w http.ResponseWriter, r *http.Request) {
+// streamCachedSitemap will stream contentserver export
+func (p *Proxy) streamCachedSitemap(w http.ResponseWriter, r *http.Request) {
 
 	// duration
 	start := time.Now()
 
-	// extract request data
-	workspace := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("workspace")))
-
-	// validate workspace
-	if workspace == "" {
-		workspace = cms.WorkspaceLive
-	}
-
 	// logger
-	log := p.setupLogger(r, "streamCachedNeosContentServerExport").WithField(logging.FieldWorkspace, workspace)
+	log := p.setupLogger(r, "streamCachedSitemap")
 
-	workspaceCache, workspaceWorkerOK := p.workspaceCaches[workspace]
-	if !workspaceWorkerOK {
-		log.Error("workspace worker not found")
-		p.error(w, r, http.StatusBadRequest, "workspace worker not found")
-		return
-	}
-
-	workspaceCache.FileLock.RLock()
-	defer workspaceCache.FileLock.RUnlock()
+	p.sitemapCache.FileLock.RLock()
+	defer p.sitemapCache.FileLock.RUnlock()
 
 	// open file
-	file, fileInfo, errFile := workspaceCache.GetContentServerExport()
+	file, fileInfo, errFile := p.sitemapCache.GetContentServerExport()
 	if errFile != nil {
 
 		if errFile == cache.ErrorFileNotExists {
-			workspaceCache.Invalidate()
+			p.sitemapCache.Invalidate()
 			log.WithError(errFile).Error("cached contentserver export: cache empty, invalidation triggered")
 			p.error(w, r, http.StatusConflict, "cache empty; cache invalidation triggered; please try again later")
 			return
@@ -304,18 +240,10 @@ func (p *Proxy) streamStatus(w http.ResponseWriter, r *http.Request) {
 
 func (p *Proxy) getAllEtags(w http.ResponseWriter, r *http.Request) {
 
-	// extract request data
-	workspace := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("workspace")))
-
-	// validate workspace
-	if workspace == "" {
-		workspace = cms.WorkspaceLive
-	}
-
 	// logger
-	log := p.setupLogger(r, "getAllEtags").WithField(logging.FieldWorkspace, workspace)
+	log := p.setupLogger(r, "getAllEtags")
 
-	etags := p.contentCache.GetAllEtags(workspace)
+	etags := p.contentCache.GetAllEtags()
 
 	w.Header().Set("Content-Type", string(mimeApplicationJSON))
 	encoder := json.NewEncoder(w)
@@ -353,18 +281,10 @@ func (p *Proxy) getEtag(w http.ResponseWriter, r *http.Request, hash string) {
 
 func (p *Proxy) getEtagByID(w http.ResponseWriter, r *http.Request) {
 	// extract request data
-	workspace := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("workspace")))
-
-	// validate workspace
-	if workspace == "" {
-		workspace = cms.WorkspaceLive
-	}
-
-	// extract request data
 	id := getRequestParameter(r, "id")
 	dimension := getRequestParameter(r, "dimension")
 
-	hash := store.GetHash(id, dimension, workspace)
+	hash := store.GetHash(id, dimension)
 
 	p.getEtag(w, r, hash)
 }

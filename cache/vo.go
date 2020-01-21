@@ -9,7 +9,6 @@ import (
 
 // Cache workspace items
 type Cache struct {
-	Workspace           string
 	invalidationChannel chan time.Time
 
 	file     string
@@ -23,5 +22,5 @@ type Cache struct {
 
 // Broker to handle content structure changes
 type Broker interface {
-	NotifyOnSitemapChange(workspace string)
+	NotifyOnSitemapChange()
 }

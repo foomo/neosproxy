@@ -16,19 +16,21 @@ func (c *Cache) RemoveAll() (err error) {
 
 // Invalidate creates an invalidation job and adds it to the queue
 // serveral workers will take care of job execution
-func (c *Cache) Invalidate(id, dimension, workspace string) {
+func (c *Cache) Invalidate(id, dimension string) {
 	req := InvalidationRequest{
 		CreatedAt:        time.Now(),
 		ID:               id,
 		Dimension:        dimension,
-		Workspace:        workspace,
 		ExecutionCounter: 0,
 	}
 
 	logger := c.log.WithFields(logrus.Fields{
-		"id":        id,
-		"dimension": dimension,
-		"workspace": workspace,
+		"id":                          id,
+		"dimension":                   dimension,
+		"lenInvalidationChannel":      len(c.invalidationChannel),
+		"capInvalidationChannel":      cap(c.invalidationChannel),
+		"lenInvalidationRetryChannel": len(c.invalidationRetryChannel),
+		"capInvalidationRetryChannel": cap(c.invalidationRetryChannel),
 	})
 
 	select {
@@ -44,15 +46,14 @@ func (c *Cache) Invalidate(id, dimension, workspace string) {
 
 // Load will immediately load content from NEOS and persist it as a cache item
 // no retry if it fails
-func (c *Cache) Load(id, dimension, workspace string) (item store.CacheItem, err error) {
+func (c *Cache) Load(id, dimension string) (item store.CacheItem, err error) {
 
-	groupName := strings.Join([]string{"invalidate", id, dimension, workspace}, "-")
+	groupName := strings.Join([]string{"invalidate", id, dimension}, "-")
 	itemInterfaced, errThrottled, _ := c.invalidationRequestGroup.Do(groupName, func() (i interface{}, e error) {
 		return c.invalidate(InvalidationRequest{
 			CreatedAt: time.Now(),
 			ID:        id,
 			Dimension: dimension,
-			Workspace: workspace,
 		})
 	})
 
@@ -81,7 +82,7 @@ func (c *Cache) invalidate(req InvalidationRequest) (item store.CacheItem, err e
 	defer cancel()
 
 	// load item
-	cmsContent, errGetContent := c.loader.GetContent(req.ID, req.Dimension, req.Workspace, ctx)
+	cmsContent, errGetContent := c.loader.GetContent(req.ID, req.Dimension, c.workspace, ctx)
 	if errGetContent != nil {
 		err = errGetContent
 		return
@@ -90,20 +91,20 @@ func (c *Cache) invalidate(req InvalidationRequest) (item store.CacheItem, err e
 	// update cache dependencies
 	if len(cmsContent.CacheDependencies) > 0 {
 		for _, targetID := range cmsContent.CacheDependencies {
-			c.cacheDependencies.Set(req.ID, targetID, req.Dimension, req.Workspace)
+			c.cacheDependencies.Set(req.ID, targetID, req.Dimension)
 		}
 	}
 
 	// invalidate dependencies
-	dependencies := c.cacheDependencies.Get(req.ID, req.Dimension, req.Workspace)
+	dependencies := c.cacheDependencies.Get(req.ID, req.Dimension)
 	if len(dependencies) > 0 {
 		for _, nodeID := range dependencies {
-			c.Invalidate(nodeID, req.Dimension, req.Workspace)
+			c.Invalidate(nodeID, req.Dimension)
 		}
 	}
 
 	// prepare cache item
-	item = store.NewCacheItem(req.ID, req.Dimension, req.Workspace, cmsContent.HTML, cmsContent.CacheDependencies, c.validUntil(cmsContent.ValidUntil))
+	item = store.NewCacheItem(req.ID, req.Dimension, cmsContent.HTML, cmsContent.CacheDependencies, c.validUntil(cmsContent.ValidUntil))
 
 	// write item to cache
 	errUpsert := c.store.Upsert(item)
@@ -116,7 +117,6 @@ func (c *Cache) invalidate(req InvalidationRequest) (item store.CacheItem, err e
 	c.log.WithFields(logrus.Fields{
 		"id":        req.ID,
 		"dimension": req.Dimension,
-		"workspace": req.Workspace,
 		"retry":     req.ExecutionCounter,
 		"createdAt": req.CreatedAt,
 		"waitTime":  time.Since(req.CreatedAt).Seconds(),

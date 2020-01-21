@@ -5,9 +5,9 @@ import (
 )
 
 // Get a cache item, if it exists
-func (c *Cache) Get(id, dimension, workspace string) (item store.CacheItem, err error) {
+func (c *Cache) Get(id, dimension string) (item store.CacheItem, err error) {
 
-	hash := store.GetHash(id, dimension, workspace)
+	hash := store.GetHash(id, dimension)
 	cachedItem, errGet := c.store.Get(hash)
 	if errGet != nil {
 		err = errGet
@@ -32,8 +32,8 @@ func (c *Cache) GetAll() ([]store.CacheItem, error) {
 	return c.store.GetAll()
 }
 
-func (c *Cache) GetAllEtags(workspace string) (etags map[string]string) {
-	return c.store.GetAllEtags(workspace)
+func (c *Cache) GetAllEtags() (etags map[string]string) {
+	return c.store.GetAllEtags()
 }
 
 func (c *Cache) GetEtag(hash string) (etag string, e error) {

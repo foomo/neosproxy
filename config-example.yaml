@@ -5,9 +5,7 @@ proxy:
 
 neos:
   url: "http://cms/"
-  workspaces:
-    - live
-    - stage
+  workspace: "live"
   dimensions:
     - de
     - fr
@@ -18,7 +16,7 @@ cache:
   # cache directory
   directory: "/var/data/neosproxy"
 
-observer:
+observers:
   - name: "foomo-stage"
     type: "foomo"
     url: "https://host.example.com/whatever/to-call"
@@ -41,9 +39,6 @@ observer:
 
 # observers can subscribe to multiple workspaces
 subscriptions:
-  live: ["foomo-prod", "foomo-stage", "slack"]
-#  test:
-#    - "foomo-stage"
-#    - "slack"
-  stage:
-    - "foomo-stage"
+  - "foomo-prod"
+  - "foomo-stage"
+  - "slack"

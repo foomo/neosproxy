@@ -15,7 +15,6 @@ type CacheItem struct {
 
 	ID        string
 	Dimension string
-	Workspace string
 
 	created    time.Time
 	validUntil time.Time
@@ -28,17 +27,15 @@ type CacheItem struct {
 type CacheDependencies struct {
 	ID           string
 	Dimension    string
-	Workspace    string
 	Dependencies []string
 }
 
 // NewCacheItem will create a new cache item
-func NewCacheItem(id string, dimension string, workspace string, html string, dependencies []string, validUntil time.Time) CacheItem {
+func NewCacheItem(id string, dimension string, html string, dependencies []string, validUntil time.Time) CacheItem {
 	return CacheItem{
-		Hash:         GetHash(id, dimension, workspace),
+		Hash:         GetHash(id, dimension),
 		ID:           id,
 		Dimension:    dimension,
-		Workspace:    workspace,
 		created:      time.Now(),
 		validUntil:   validUntil,
 		HTML:         html,
@@ -56,8 +53,8 @@ func (item *CacheItem) GetEtag() string {
 }
 
 // GetHash will return a cache item hash
-func GetHash(id, dimension, workspace string) string {
-	return strings.Join([]string{workspace, dimension, id}, "_")
+func GetHash(id, dimension string) string {
+	return strings.Join([]string{dimension, id}, "_")
 }
 
 func generateFingerprint(data string) string {

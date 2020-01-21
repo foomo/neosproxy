@@ -10,11 +10,12 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-// Cache workspace items
+// Cache items
 type Cache struct {
-	observer Observer
-	loader   cms.ContentLoader
-	store    store.CacheStore
+	observer  Observer
+	loader    cms.ContentLoader
+	store     store.CacheStore
+	workspace string
 
 	invalidationRequestGroup *singleflight.Group
 	invalidationChannel      chan InvalidationRequest
@@ -31,7 +32,6 @@ type Cache struct {
 type InvalidationRequest struct {
 	ID        string
 	Dimension string
-	Workspace string
 
 	CreatedAt        time.Time
 	LastExecutedAt   time.Time

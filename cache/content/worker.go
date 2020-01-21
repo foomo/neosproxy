@@ -95,7 +95,6 @@ func (c *Cache) invalidationWorker(id int) {
 		l := c.log.WithFields(logrus.Fields{
 			"id":         job.ID,
 			"dimension":  job.Dimension,
-			"workspace":  job.Workspace,
 			"retry":      job.ExecutionCounter,
 			"createdAt":  job.CreatedAt,
 			"modifiedAt": job.LastExecutedAt,
