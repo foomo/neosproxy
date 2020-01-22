@@ -22,6 +22,8 @@ func main() {
 	// logger
 	logger := logging.GetDefaultLogEntry()
 
+	logger.WithField("configFile", *flagConfigFile).Debug("loading config from file")
+
 	// load config
 	config, errConfig := config.Load(*flagConfigFile)
 	if errConfig != nil {
@@ -49,6 +51,7 @@ func main() {
 	cacheLifetime := time.Duration(0) // forever // time.Minute * 60
 
 	// create proxy
+
 	p := proxy.New(config, contentLoader.CMS, contentStore, cacheLifetime)
 
 	// // auto update
