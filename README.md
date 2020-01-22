@@ -1,11 +1,9 @@
-NEOSPROXY
-======
+# NEOSPROXY
 
 Neosproxy could be used to proxy a NEOS CMS.
 It will cache requests to the Foomo.Neos.Contentserver package.
 
-application
-----
+## application
 
 The application requires an API_KEY as an environment variable.
 This API_KEY is used for authorization on cache invalidation requests.
@@ -17,19 +15,17 @@ The NEOS endpoint must be configured by setting the "neos" parameter as well.
 neosproxy --address=":80" --neos="https://www.myneosendpoint.com" --auto-update="1h"
 ```
 
-web hooks
-----
+## web hooks
 
 Neosproxy can call given comma seperated urls to notify you on events:
 
-
-* `--callback-updated`: called after update
+- `--callback-updated`: called after update
 
 If you want to skip tls verification you can pass the following option:
 
-* `--callback-tls-verify=false`: skip tls verification
+- `--callback-tls-verify=false`: skip tls verification
 
-You can optionally add a `--callback-key` to be sent as header with each call.  
+You can optionally add a `--callback-key` to be sent as header with each call.
 
 Example:
 
@@ -37,18 +33,16 @@ Example:
 neosproxy --address=":80" --neos="https://www.myneosendpoint.com" --callback-tls-verify="false" --callback-updated="http://foo.com,https://bar.com" --callback-key="secret"
 ```
 
-docker
-----
+## docker
 
 For docker pass in the API_KEY as an environment variable as well.
-Run the container in the same network as your neos container. 
+Run the container in the same network as your neos container.
 
 ```bash
-docker run --rm -it -p="8080:80" -e="API_KEY=ZPNFYsXouqeRYPZ34cV4962KaZdU2Lp29LwbftMDeFBae3wcWX" foomo/neosproxy:latest -neos https://www.myneosendpoint.com 
+docker run --rm -it -p="8080:80" -e="API_KEY=ZPNFYsXouqeRYPZ34cV4962KaZdU2Lp29LwbftMDeFBae3wcWX" foomo/neosproxy:latest -neos https://www.myneosendpoint.com
 ```
 
-routes
-----
+## routes
 
 ```
 /contentserver/export
@@ -62,8 +56,7 @@ routes
 
 ```
 
-curl
-----
+## curl
 
 Some curl examples for local development.
 
