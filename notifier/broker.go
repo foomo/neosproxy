@@ -36,9 +36,20 @@ func NewBroker() *Broker {
 func (b *Broker) Notify(response content_cache.InvalidationResponse) {
 	b.contentLock.RLock()
 	defer b.contentLock.RUnlock()
-	// for _, observer := range b.contentObservers {
-	// 	go observer.Notify(response)
-	// }
+
+	event := NotifyEvent{
+		EventType: EventTypeContentUpdate,
+		Payload: NotifyPayload{
+			ID:        response.Item.ID,
+			Dimension: response.Item.Dimension,
+		},
+	}
+
+	for _, observer := range b.sitemapObservers {
+		logging.GetDefaultLogEntry().WithField("name", observer.GetName()).Debug("broker: NotifyOnSitemapChange")
+
+		go observer.Notify(event)
+	}
 }
 
 // NotifyOnSitemapChange guess what ... will be called in case the content structure has changed

@@ -9,10 +9,15 @@ const (
 
 type NotifyEvent struct {
 	EventType EventType
-	Payload   interface{}
+	Payload   NotifyPayload
 }
 
 type Notifier interface {
 	GetName() string
 	Notify(event NotifyEvent) error
+}
+
+type NotifyPayload struct {
+	ID        string
+	Dimension string
 }

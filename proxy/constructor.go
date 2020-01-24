@@ -87,7 +87,7 @@ func New(cfg *config.Config, contentLoader cms.ContentLoader, contentStore store
 		l := logging.GetDefaultLogEntry().WithField("url", observer.Webhook.URL).WithField("name", observer.Webhook.Name)
 		l.Debug("register sitemap observer")
 
-		n := notifier.NewContentServerNotifier(observer.Webhook.Name, observer.Webhook.URL, observer.Webhook.Token, observer.Webhook.VerifyTLS)
+		n := notifier.NewWebhookNotifier(observer.Webhook.Name, observer.Webhook.URL, observer.Webhook.Token, observer.Webhook.VerifyTLS, cfg.Neos.Workspace)
 
 		for _, subscription := range cfg.Subscriptions {
 			if subscription == n.GetName() {

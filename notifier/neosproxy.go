@@ -10,9 +10,9 @@ import (
 	"github.com/foomo/neosproxy/utils"
 )
 
-var _ Notifier = &ContentServer{}
+var _ Notifier = &Neosproxy{}
 
-type ContentServer struct {
+type Neosproxy struct {
 	name     string
 	token    string
 	endpoint *url.URL
@@ -22,7 +22,7 @@ type ContentServer struct {
 var redirectAttemptedError = errors.New("redirect")
 
 // NewContentServerNotifier will create a new contentserver update notifier
-func NewContentServerNotifier(name string, endpoint *url.URL, token string, verifyTLS bool) *ContentServer {
+func NewNeosproxyNotifier(name string, endpoint *url.URL, token string, verifyTLS bool) *Neosproxy {
 
 	// client
 	client := &http.Client{
@@ -32,7 +32,7 @@ func NewContentServerNotifier(name string, endpoint *url.URL, token string, veri
 		Transport: utils.GetDefaultTransport(verifyTLS),
 	}
 
-	return &ContentServer{
+	return &Neosproxy{
 		name:     name,
 		endpoint: endpoint,
 		token:    token,
@@ -40,12 +40,12 @@ func NewContentServerNotifier(name string, endpoint *url.URL, token string, veri
 	}
 }
 
-func (n *ContentServer) GetName() string {
-	return n.name
+func (wh *Neosproxy) GetName() string {
+	return wh.name
 }
 
 // func (p *Proxy) Notify(channel *Channel, workspace string, event string, payload []byte, httpClient *http.Client, redirectCount int) bool {
-func (n *ContentServer) Notify(event NotifyEvent) error {
+func (wh *Neosproxy) Notify(event NotifyEvent) error {
 
 	// // redirect counter
 	// if redirectCount >= 10 {
@@ -55,25 +55,24 @@ func (n *ContentServer) Notify(event NotifyEvent) error {
 
 	// payload
 	payload, errPayload := json.Marshal(map[string]string{
-		"type":      "updated",
-		"workspace": event.Payload.(string),
+		"type": "updated",
 	})
 	if errPayload != nil {
 		return errPayload
 	}
 
 	// prepare request
-	request, errRequest := http.NewRequest(http.MethodPost, n.endpoint.String(), bytes.NewBuffer(payload))
+	request, errRequest := http.NewRequest(http.MethodDelete, wh.endpoint.String(), bytes.NewBuffer(payload))
 	if errRequest != nil {
 		return errRequest
 	}
 
 	// add header
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Add("key", n.token)
+	request.Header.Add("Authorization", "Bearer "+wh.token)
 
 	// call
-	response, errRequest := n.client.Do(request)
+	response, errRequest := wh.client.Do(request)
 
 	// // redirect handler
 	// if urlError, ok := err.(*url.Error); ok && urlError.Err == RedirectAttemptedError {
