@@ -26,9 +26,13 @@ func (c *Cache) Invalidate(id, dimension, workspace string) {
 	}
 
 	logger := c.log.WithFields(logrus.Fields{
-		"id":        id,
-		"dimension": dimension,
-		"workspace": workspace,
+		"id":                          id,
+		"dimension":                   dimension,
+		"workspace":                   workspace,
+		"lenInvalidationChannel":      len(c.invalidationChannel),
+		"capInvalidationChannel":      cap(c.invalidationChannel),
+		"lenInvalidationRetryChannel": len(c.invalidationRetryChannel),
+		"capInvalidationRetryChannel": cap(c.invalidationRetryChannel),
 	})
 
 	select {
