@@ -39,11 +39,3 @@ func (c *Cache) GetAllEtags(workspace string) (etags map[string]string) {
 func (c *Cache) GetEtag(hash string) (etag string, e error) {
 	return c.store.GetEtag(hash)
 }
-
-func (c *Cache) GetInvalidationChannel() chan InvalidationRequest {
-	return c.invalidationChannel
-}
-
-func (c *Cache) GetInvalidationRetryChannel() chan InvalidationRequest {
-	return c.invalidationRetryChannel
-}

@@ -279,11 +279,6 @@ func (p *Proxy) streamStatus(w http.ResponseWriter, r *http.Request) {
 	// logger
 	log := p.setupLogger(r, "status")
 
-	p.status.LenInvalidationChannel = len(p.contentCache.GetInvalidationChannel())
-	p.status.CapInvalidationChannel = cap(p.contentCache.GetInvalidationChannel())
-	p.status.LenInvalidationRetryChannel = len(p.contentCache.GetInvalidationRetryChannel())
-	p.status.CapInvalidationRetryChannel = cap(p.contentCache.GetInvalidationRetryChannel())
-
 	// stream
 	var errEncode error
 	contentNegotioation := parseAcceptHeader(r.Header.Get("accept"))

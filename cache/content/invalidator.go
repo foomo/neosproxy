@@ -26,13 +26,9 @@ func (c *Cache) Invalidate(id, dimension, workspace string) {
 	}
 
 	logger := c.log.WithFields(logrus.Fields{
-		"id":                          id,
-		"dimension":                   dimension,
-		"workspace":                   workspace,
-		"lenInvalidationChannel":      len(c.invalidationChannel),
-		"capInvalidationChannel":      cap(c.invalidationChannel),
-		"lenInvalidationRetryChannel": len(c.invalidationRetryChannel),
-		"capInvalidationRetryChannel": cap(c.invalidationRetryChannel),
+		"id":        id,
+		"dimension": dimension,
+		"workspace": workspace,
 	})
 
 	select {
@@ -72,12 +68,6 @@ func (c *Cache) Load(id, dimension, workspace string) (item store.CacheItem, err
 // invalidate cache item, load fresh content from NEOS
 func (c *Cache) invalidate(req InvalidationRequest) (item store.CacheItem, err error) {
 
-	l := c.log.WithFields(logrus.Fields{
-		"nodeId":    req.ID,
-		"dimension": req.Dimension,
-		"workspace": req.Workspace,
-	})
-
 	// timer
 	start := time.Now()
 
@@ -106,10 +96,8 @@ func (c *Cache) invalidate(req InvalidationRequest) (item store.CacheItem, err e
 
 	// invalidate dependencies
 	dependencies := c.cacheDependencies.Get(req.ID, req.Dimension, req.Workspace)
-	l = l.WithField("depLength", len(dependencies))
 	if len(dependencies) > 0 {
 		for _, nodeID := range dependencies {
-			l.WithField("dependentNodeId", nodeID).Info("invalidate dependency")
 			c.Invalidate(nodeID, req.Dimension, req.Workspace)
 		}
 	}
