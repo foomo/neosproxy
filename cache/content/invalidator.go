@@ -106,7 +106,7 @@ func (c *Cache) invalidate(req InvalidationRequest) (item store.CacheItem, err e
 
 	// invalidate dependencies
 	dependencies := c.cacheDependencies.Get(req.ID, req.Dimension, req.Workspace)
-	l.WithField("depLength", len(dependencies))
+	l = l.WithField("depLength", len(dependencies))
 	if len(dependencies) > 0 {
 		for _, nodeID := range dependencies {
 			l.WithField("dependentNodeId", nodeID).Info("invalidate dependency")
