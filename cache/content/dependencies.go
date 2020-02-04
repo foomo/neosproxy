@@ -65,17 +65,16 @@ func (c *cacheDependency) Set(sourceID, targetID string) {
 	if _, ok := c.dependencies[targetID]; !ok {
 		c.dependencies[targetID] = []string{}
 	}
-	// match := false
-	// for _, id := range c.dependencies[targetID] {
-	// 	if id == sourceID {
-	// 		match = true
-	// 		break
-	// 	}
-	// }
-	// if !match {
-	// 	c.dependencies[targetID] = append(c.dependencies[targetID], sourceID)
-	// }
-	c.dependencies[targetID] = append(c.dependencies[targetID], sourceID)
+	match := false
+	for _, id := range c.dependencies[targetID] {
+		if id == sourceID {
+			match = true
+			break
+		}
+	}
+	if !match {
+		c.dependencies[targetID] = append(c.dependencies[targetID], sourceID)
+	}
 	c.lock.Unlock()
 	return
 }
